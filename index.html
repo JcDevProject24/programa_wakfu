@@ -84,6 +84,27 @@
   .card-mascotas  { --card-color: var(--gold); }
   .card-archis    { --card-color: var(--red); }
   .card-prof      { --card-color: var(--teal); }
+
+  .hub-footer {
+    margin-top: 40px;
+    display: flex;
+    justify-content: center;
+  }
+  .export-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color .2s, border-color .2s;
+  }
+  .export-btn:hover { color: var(--gold); border-color: var(--gold); }
 </style>
 </head>
 <body>
@@ -121,6 +142,9 @@
       <div class="hub-card-stat" id="stat-prof">Cargando…</div>
     </a>
 
+  </div>
+  <div class="hub-footer">
+    <a class="export-btn" href="export.php" download>⬇ Exportar base de datos</a>
   </div>
 </div>
 

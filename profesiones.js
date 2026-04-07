@@ -672,19 +672,26 @@ function buildCard(item) {
         const rLabel = refItem.rareza || '';
 
         // Comparativa compra vs crafteo
+        // Cuando el modo activo es 'compra', el precio de subasta es editable inline
+        const compraBadge = (isActive) => {
+          const cls = isActive ? 'mat-opt-active' : 'mat-opt-dim';
+          if (isActive) {
+            return `<span class="mat-opt ${cls}" title="Precio subasta · editable">🛒 <input class="mat-opt-input" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onchange="updateCatalogPrice('${esc}',this.value)"></span>`;
+          }
+          return `<span class="mat-opt ${cls}" title="Precio de compra">🛒 ${info.precioCompra > 0 ? fmtK(info.precioCompra) : '—'}</span>`;
+        };
         let comparHtml = '';
         if (info.precioCreacion > 0 && info.precioCompra > 0) {
-          const cmpC = info.modo === 'compra'   ? 'mat-opt-active' : 'mat-opt-dim';
-          const cmpF = info.modo === 'crafteo'  ? 'mat-opt-active' : 'mat-opt-dim';
+          const crafteoCls = info.modo === 'crafteo' ? 'mat-opt-active' : 'mat-opt-dim';
           comparHtml = `
-            <span class="mat-opt ${cmpC}" title="Precio de compra en mercado">🛒 ${fmtK(info.precioCompra)}</span>
+            ${compraBadge(info.modo === 'compra')}
             <span class="mat-opt-sep">vs</span>
-            <span class="mat-opt ${cmpF}" title="Coste de fabricación (más barato)">⚒ ${fmtK(info.precioCreacion)}</span>`;
+            <span class="mat-opt ${crafteoCls}" title="Coste de fabricación${info.modo === 'crafteo' ? ' (más barato)' : ''}">⚒ ${fmtK(info.precioCreacion)}</span>`;
         } else if (info.precioCreacion > 0) {
           comparHtml = `<span class="mat-opt mat-opt-active" title="Coste de fabricación">⚒ ${fmtK(info.precioCreacion)}</span>
             <span class="mat-opt mat-opt-dim" title="Sin precio de compra definido">🛒 —</span>`;
         } else {
-          comparHtml = `<span class="mat-opt mat-opt-active" title="Precio de compra">🛒 ${info.precioCompra > 0 ? fmtK(info.precioCompra) : '—'}</span>`;
+          comparHtml = compraBadge(true);
         }
 
         return `<div class="mat-row mat-row-linked">

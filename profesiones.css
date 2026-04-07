@@ -84,26 +84,26 @@
   border-bottom: 1px solid var(--border);
 }
 .mat-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 38px 155px 80px;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  padding: 4px 10px;
+  gap: 0 8px;
+  padding: 5px 10px;
   font-size: 0.82rem;
   border-bottom: 1px solid rgba(42,47,66,0.5);
 }
 .mat-row:last-of-type { border-bottom: none; }
-.mat-nombre   { flex: 1 1 120px; color: var(--text); min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mat-qty      { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.75rem; white-space: nowrap; }
+.mat-nombre   { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mat-qty      { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.75rem; text-align: center; white-space: nowrap; }
 .mat-precio   { color: var(--text2); font-size: 0.78rem; white-space: nowrap; }
-.mat-total    { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.75rem; white-space: nowrap; min-width: 70px; text-align: right; }
+.mat-total    { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.75rem; white-space: nowrap; text-align: right; }
 
 /* ── Precio compartido del catálogo (editable inline desde la card) ── */
 .mat-precio-wrap {
   display: flex;
   align-items: center;
   gap: 3px;
-  min-width: 90px;
+  overflow: hidden;
 }
 .mat-price-inline {
   width: 80px;
@@ -440,9 +440,12 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
-  min-width: 0;
+  overflow: hidden;
 }
 .mat-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   font-family: 'Cinzel', serif;
   font-size: 0.68rem;
   padding: 1px 6px;
@@ -450,7 +453,25 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   white-space: nowrap;
   border: 1px solid transparent;
   transition: all .15s;
+  flex-shrink: 0;
 }
+/* Input de precio de subasta editable dentro de la comparativa */
+.mat-opt-input {
+  width: 62px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(82,183,136,0.5);
+  color: var(--green);
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  padding: 0 2px;
+  outline: none;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+.mat-opt-input::-webkit-outer-spin-button,
+.mat-opt-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.mat-opt-input:focus { border-bottom-color: var(--green); }
 .mat-opt-active {
   background: rgba(82,183,136,0.12);
   border-color: rgba(82,183,136,0.4);

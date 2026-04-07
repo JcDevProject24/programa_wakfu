@@ -1,0 +1,35 @@
+# ── Claude Code ──────────────────────────────
+.claude/
+
+# ── Configuración local PHP / BD ─────────────
+config.php
+config.local.php
+*.env
+.env*
+
+# ── Dependencias ─────────────────────────────
+node_modules/
+vendor/
+
+# ── Sistema operativo ────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editores e IDEs ──────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
+*.swp
+*.swo
+
+# ── Logs y temporales ────────────────────────
+*.log
+tmp/
+temp/
+
+# ── Backups generados por editores ───────────
+*~
+*.bak
+*.orig

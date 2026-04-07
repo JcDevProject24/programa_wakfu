@@ -162,7 +162,7 @@
   .results-bar strong { color: var(--gold2); font-family: 'Cinzel', serif; }
 
   /* ── CARDS ── */
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 16px; }
 
   .card {
     background: var(--bg2);
