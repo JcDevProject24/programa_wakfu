@@ -1,0 +1,490 @@
+/* ── HORA DISPONIBLE ── */
+.cd-hora {
+  font-size: 0.82rem;
+  color: var(--gold2);
+  font-family: 'Cinzel', serif;
+  opacity: 0.9;
+}
+
+/* ── NOTIFICACIÓN HEADER BOSSES ── */
+.notif-disponibles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.notif-fresh {
+  background: rgba(82,183,136,0.15);
+  border: 1px solid rgba(82,183,136,0.4);
+  color: var(--green);
+}
+.notif-old {
+  background: rgba(100,100,100,0.1);
+  border: 1px solid rgba(100,100,100,0.25);
+  color: var(--muted);
+}
+.notif-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.notif-fresh .notif-dot {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse-notif 1.5s ease-in-out infinite;
+}
+.notif-old .notif-dot { background: var(--muted); }
+@keyframes pulse-notif {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--green); }
+  50%       { opacity: 0.4; box-shadow: 0 0 2px var(--green); }
+}
+
+/* ── BOTONES ±5m ── */
+.kill-minus { color: var(--orange) !important; border-color: rgba(224,140,58,0.4) !important; }
+.kill-plus  { color: var(--teal)   !important; border-color: rgba(78,205,196,0.4) !important; }
+.kill-minus:hover { background: rgba(224,140,58,0.12) !important; border-color: var(--orange) !important; }
+.kill-plus:hover  { background: rgba(78,205,196,0.12) !important; border-color: var(--teal)   !important; }
+
+/* ── ARCHI META ── */
+.archi-meta {
+  font-size: 0.82rem;
+  color: var(--text2);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.archi-meta strong { color: var(--orange); font-family: 'Cinzel', serif; }
+
+/* ── CARD ACTIONS ── */
+.card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.action-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all .2s;
+  line-height: 1;
+}
+.action-btn:hover { border-color: var(--gold); color: var(--gold); }
+.action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+
+/* ── LOOTS ── */
+.loots-section {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.loot-block {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.loot-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  font-size: 0.83rem;
+  gap: 6px;
+}
+.loot-name  { color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loot-rate  { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.72rem; white-space: nowrap; flex-shrink: 0; }
+.loot-price { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.78rem; white-space: nowrap; flex-shrink: 0; }
+
+/* ── LOOT TRACKING (obtenidos/vendidos) ── */
+.loot-tracking {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 6px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.loot-track-label { font-size: 0.74rem; color: var(--muted); white-space: nowrap; }
+.loot-counter {
+  width: 54px;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--white);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  outline: none;
+  text-align: center;
+  transition: border-color .2s;
+}
+.loot-counter:focus { border-color: var(--gold); }
+.loot-counter::-webkit-outer-spin-button,
+.loot-counter::-webkit-inner-spin-button { -webkit-appearance: none; }
+.loot-counter { -moz-appearance: textfield; }
+
+.en-venta-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.72rem;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.en-venta-btn:hover        { border-color: var(--gold); color: var(--gold); }
+.en-venta-btn.active       { background: rgba(201,168,76,0.15); border-color: var(--gold); color: var(--gold2); }
+
+/* ── MONEY SUMMARY ── */
+.money-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: rgba(201,168,76,0.05);
+  border-top: 1px dashed rgba(201,168,76,0.2);
+  flex-wrap: wrap;
+}
+.money-real  { font-family: 'Cinzel', serif; font-size: 0.8rem; color: var(--green); font-weight: 600; }
+.money-bruto { font-family: 'Cinzel', serif; font-size: 0.78rem; color: var(--muted); }
+.money-bruto-solo { color: var(--gold); }
+
+/* ── RAREZA BADGES ── */
+.loot-rareza-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* Colores reales del juego: raro=verde, mitico=naranja, legendario=amarillo, epico=rosa, reliquia=morado */
+.rareza-raro       { background: rgba(82,183,136,0.15);  border: 1px solid #52b788; color: #52b788; }
+.rareza-mitico     { background: rgba(224,140,58,0.15);  border: 1px solid #e08c3a; color: #e08c3a; }
+.rareza-legendario { background: rgba(232,200,64,0.15);  border: 1px solid #e8c840; color: #e8c840; }
+.rareza-epico      { background: rgba(224,122,170,0.15); border: 1px solid #e07aaa; color: #e07aaa; }
+.rareza-reliquia   { background: rgba(155,114,207,0.15); border: 1px solid #9b72cf; color: #9b72cf; }
+
+/* Botones de rareza en sidebar con color propio */
+.rareza-btn.rareza-raro       { color: #52b788; border-color: #52b788; }
+.rareza-btn.rareza-mitico     { color: #e08c3a; border-color: #e08c3a; }
+.rareza-btn.rareza-legendario { color: #e8c840; border-color: #e8c840; }
+.rareza-btn.rareza-epico      { color: #e07aaa; border-color: #e07aaa; }
+.rareza-btn.rareza-reliquia   { color: #9b72cf; border-color: #9b72cf; }
+.rareza-btn.active.rareza-raro       { background: #52b788; color: #0d0f14; }
+.rareza-btn.active.rareza-mitico     { background: #e08c3a; color: #0d0f14; }
+.rareza-btn.active.rareza-legendario { background: #e8c840; color: #0d0f14; }
+.rareza-btn.active.rareza-epico      { background: #e07aaa; color: #0d0f14; }
+.rareza-btn.active.rareza-reliquia   { background: #9b72cf; color: #fff; }
+
+/* ── TIPO BADGE ── */
+.loot-tipo-badge {
+  font-size: 0.7rem;
+  color: var(--teal);
+  background: rgba(78,205,196,0.08);
+  border: 1px solid rgba(78,205,196,0.2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── BIS ── */
+.loot-bis {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(240,208,96,0.6));
+  line-height: 1;
+}
+.loot-block-bis {
+  border-color: rgba(201,168,76,0.35) !important;
+  background: rgba(201,168,76,0.04);
+}
+.card-bis-count {
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  color: var(--gold2);
+  margin-left: auto;
+}
+
+/* ── LOOT FORM ── */
+.loot-form-top    { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.loot-form-bottom { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.loot-form-row    { margin-bottom: 10px; }
+
+.bis-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  color: var(--gold);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+}
+.bis-label input { accent-color: var(--gold); cursor: pointer; }
+
+/* ── SIDEBAR SELECT ── */
+.sidebar-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.9rem;
+  padding: 7px 10px;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.sidebar-select:focus { border-color: var(--gold); }
+
+/* ── RESPAWN SECTION ── */
+.respawn-section {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.respawn-info { font-size: 0.76rem; color: var(--muted); }
+.respawn-default { color: var(--text2); }
+.respawn-custom { color: var(--teal); font-weight: 600; }
+
+/* ── COUNTDOWN ── */
+.countdown {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: 7px 12px;
+  border-radius: 6px;
+  text-align: center;
+}
+.countdown.disponible {
+  background: rgba(82,183,136,0.12);
+  border: 1px solid var(--green);
+  color: var(--green);
+  animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(82,183,136,0.3); }
+  50%       { box-shadow: 0 0 0 6px rgba(82,183,136,0); }
+}
+.countdown.esperando {
+  background: rgba(224,140,58,0.1);
+  border: 1px solid var(--orange);
+  color: var(--orange);
+}
+.countdown.unknown {
+  background: rgba(107,115,148,0.08);
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* ── KILL BUTTONS ── */
+.kill-info { font-size: 0.74rem; color: var(--muted); font-style: italic; text-align: center; }
+.quick-kill { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.kill-btn {
+  background: rgba(224,82,82,0.1);
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  transition: all .2s;
+  flex: 1;
+}
+.kill-btn:hover { background: var(--red); color: #fff; }
+.kill-mini {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-size: 0.74rem;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.kill-mini:hover { border-color: var(--red); color: var(--red); }
+
+/* ── ADD BUTTON (header) ── */
+.add-btn {
+  background: var(--gold);
+  border: none;
+  color: #0d0f14;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.add-btn:hover { background: var(--gold2); transform: translateY(-1px); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 28px;
+  width: min(560px, 95vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+.modal-head h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gold2);
+  letter-spacing: 0.08em;
+}
+.modal-close {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 4px 9px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all .2s;
+  line-height: 1.2;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+
+/* ── FORM ── */
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--white);
+  font-family: 'Crimson Pro', serif;
+  font-size: 1rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color .2s;
+}
+.form-input:focus { border-color: var(--gold); }
+.form-input::-webkit-outer-spin-button,
+.form-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.form-input[type=number] { -moz-appearance: textfield; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.loot-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+.loot-form-row .form-input { font-size: 0.92rem; padding: 6px 10px; }
+
+.add-loot-btn {
+  background: transparent;
+  border: 1px dashed var(--border2);
+  color: var(--text2);
+  border-radius: 5px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all .2s;
+  width: 100%;
+  margin-top: 2px;
+}
+.add-loot-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.respawn-hint {
+  font-size: 0.82rem;
+  color: var(--text2);
+  font-style: italic;
+  margin-bottom: 8px;
+}
+.respawn-hint strong { color: var(--gold2); font-style: normal; font-family: 'Cinzel', serif; }
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+.btn-save {
+  background: var(--gold);
+  border: none;
+  color: #0d0f14;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 8px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.btn-save:hover { background: var(--gold2); }
+
+/* ── SOLO DISPONIBLES highlight ── */
+.card.archi-disponible { border-color: rgba(82,183,136,0.35); }

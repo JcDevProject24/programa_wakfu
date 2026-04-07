@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wakfu — Guía de Mascotas</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<header>
+  <a class="nav-back" href="index.html">← Inicio</a>
+  <div class="header-icon">🐾</div>
+  <div>
+    <h1>WAKFU · MASCOTAS</h1>
+    <p>Guía de optimización · Nivel 0</p>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><span class="hstat-n" id="cnt-opt">—</span><span class="hstat-l">Óptimas</span></div>
+    <div class="hstat"><span class="hstat-n" id="cnt-obs">—</span><span class="hstat-l">Obsoletas</span></div>
+    <div class="hstat"><span class="hstat-n" id="cnt-rec">—</span><span class="hstat-l">Recolección</span></div>
+  </div>
+</header>
+
+<div class="layout">
+<aside>
+  <div class="filter-section">
+    <div class="filter-title">🔍 Buscar</div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search" placeholder="Nombre de mascota…">
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">⚔ Tipo</div>
+    <div class="tipo-grid" id="tipo-grid"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">📊 Tiene stat</div>
+    <div class="stat-filter" id="stat-filter"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">⚙ Opciones</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <label class="toggle-row" onclick="toggleObs()">
+        <div class="toggle" id="tog-obs"></div>
+        <span>Mostrar obsoletas</span>
+      </label>
+    </div>
+  </div>
+</aside>
+
+<main>
+  <div class="results-bar">
+    <span id="results-text">Cargando…</span>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty" style="display:none">No se encontraron mascotas con esos filtros.</div>
+</main>
+</div>
+<script src="mascotas.js"></script>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wakfu — Profesiones</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="profesiones.css">
+</head>
+<body>
+
+<!-- Datalist global para autocompletado de materiales -->
+<datalist id="mat-names-dl"></datalist>
+
+<header>
+  <a class="nav-back" href="index.html">← Inicio</a>
+  <div class="header-icon">🔨</div>
+  <div>
+    <h1>WAKFU · PROFESIONES</h1>
+    <p>Crafteo, recolección y análisis de profit</p>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><span class="hstat-n" id="cnt-total">—</span><span class="hstat-l">Items</span></div>
+    <div class="hstat"><span class="hstat-n" id="cnt-rent" style="color:var(--green)">—</span><span class="hstat-l">Rentables</span></div>
+    <div class="hstat"><span class="hstat-n" id="cnt-vendidos" style="color:var(--gold)">—</span><span class="hstat-l">Vendidos</span></div>
+  </div>
+  <button class="add-btn" onclick="openModal()">+ Añadir</button>
+</header>
+
+<div class="layout">
+
+<aside>
+  <div class="filter-section">
+    <div class="filter-title">🔍 Buscar</div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search" placeholder="Nombre, profesión…">
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">📂 Categoría</div>
+    <div class="cat-tabs">
+      <button class="cat-tab active" id="cat-todo"        onclick="setCategoria('todo')">Todo</button>
+      <button class="cat-tab"        id="cat-crafteo"     onclick="setCategoria('crafteo')">Crafteo</button>
+      <button class="cat-tab"        id="cat-recoleccion" onclick="setCategoria('recoleccion')">Recolec.</button>
+      <button class="cat-tab"        id="cat-material"    onclick="setCategoria('material')">Material</button>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">👷 Profesión</div>
+    <div class="tipo-grid" id="prof-grid"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">✨ Rareza</div>
+    <div class="tipo-grid" id="rareza-grid"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">🗡 Tipo equip.</div>
+    <div class="tipo-grid" id="tipo-grid">
+      <span style="font-size:0.8rem;color:var(--muted);font-style:italic">Sin tipos aún</span>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">↕ Ordenar</div>
+    <select class="sidebar-select" onchange="setSortBy(this.value)" style="margin-bottom:5px">
+      <option value="profit">💰 Profit</option>
+      <option value="profit_pct">📈 Profit %</option>
+      <option value="vendidos">💸 Vendidos</option>
+      <option value="nivel">⭐ Nivel</option>
+      <option value="nombre">Nombre</option>
+    </select>
+    <select class="sidebar-select" onchange="setSortSecondary(this.value)" style="font-size:0.78rem;opacity:0.8">
+      <option value="vendidos">luego: 💸 Vendidos</option>
+      <option value="profit">luego: 💰 Profit</option>
+      <option value="profit_pct">luego: 📈 Profit %</option>
+      <option value="nivel">luego: ⭐ Nivel</option>
+      <option value="nombre">luego: Nombre</option>
+      <option value="">sin secundario</option>
+    </select>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">⭐ Nivel</div>
+    <div class="nivel-range-row">
+      <input type="number" id="nivel-min" class="nivel-input" placeholder="Min" min="1" max="230" oninput="setNivelRange()">
+      <span class="nivel-sep">–</span>
+      <input type="number" id="nivel-max" class="nivel-input" placeholder="Max" min="1" max="230" oninput="setNivelRange()">
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">⚙ Opciones</div>
+    <label class="toggle-row" onclick="toggleSoloRentables()" style="cursor:pointer;user-select:none">
+      <div class="toggle" id="toggle-rent"></div>
+      <span>Solo rentables</span>
+    </label>
+  </div>
+
+  <div class="filter-section" id="catalog-section">
+    <div class="filter-title" onclick="toggleCatalog()" style="cursor:pointer;user-select:none">
+      📚 Catálogo <span id="catalog-toggle-icon">▸</span>
+    </div>
+    <div id="catalog-body" style="display:none">
+      <input type="text" id="catalog-search" class="search-input" placeholder="Buscar material…"
+        oninput="renderCatalog(this.value)" style="margin-bottom:6px">
+      <div id="catalog-list"></div>
+    </div>
+  </div>
+</aside>
+
+<main>
+  <div class="results-bar">
+    <span id="results-text">Cargando…</span>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty" style="display:none">Sin items registrados — pulsa <strong>+ Añadir</strong> para empezar.</div>
+</main>
+
+</div>
+
+<!-- ── MODAL ── -->
+<div class="modal-overlay" id="modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modal-title">Añadir Item</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="item-form" onsubmit="saveItem(event)" novalidate>
+
+      <div class="form-group">
+        <label class="form-label">Nombre del item</label>
+        <input type="text" id="f-nombre" class="form-input" placeholder="Ej. Espada del Destino" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Profesión</label>
+          <select id="f-profesion" class="form-input form-select" onchange="onProfesionChange()" required>
+            <option value="">— Selecciona —</option>
+            <optgroup label="Crafteo">
+              <option>Armero</option><option>Joyero</option><option>Cocinero</option>
+              <option>Marroquinero</option><option>Peletero</option><option>Ebanista</option>
+              <option>Maestro de armas</option><option>Sastre</option>
+            </optgroup>
+            <optgroup label="Recolección">
+              <option>Herbolario</option><option>Minero</option><option>Campesino</option>
+              <option>Leñador</option><option>Pescador</option><option>Peletero</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoría</label>
+          <select id="f-categoria" class="form-input form-select" onchange="onCategoriaChange()">
+            <option value="crafteo">Crafteo</option>
+            <option value="recoleccion">Recolección</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Solo visible si recoleccion -->
+      <div id="recolec-fields" style="display:none">
+        <div class="form-group">
+          <label class="form-label">Nombre del recurso (<span id="rec-grupo-label">grupo</span>)</label>
+          <input type="text" id="f-grupo-rec" class="form-input" placeholder="Ej. Fibra Tosca, Mena de Hierro…" required>
+          <span id="rec-grupo-hint" style="font-size:0.72rem;color:var(--muted);font-style:italic;margin-top:3px;display:block">
+            Las 3 variantes (Normal, Raro, Semilla) se agrupan bajo este nombre
+          </span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Variante</label>
+            <select id="f-rareza-mat" class="form-input form-select">
+              <option value="normal">Normal</option>
+              <option value="raro">★ Raro</option>
+              <option value="semilla">🌱 Semilla</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nivel del recurso</label>
+            <input type="number" id="f-nivel-item-rec" class="form-input" placeholder="Ej. 15" min="1" max="160">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lugar / zona donde se recolecta</label>
+          <input type="text" id="f-lugar" class="form-input" placeholder="Ej. Pradera de Astrub, Cania…">
+        </div>
+        <!-- Variantes faltantes del grupo (solo visible al editar) -->
+        <div id="rec-var-btns" style="display:none"></div>
+      </div>
+
+      <!-- Solo visible si crafteo -->
+      <div id="equip-fields">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nivel del item</label>
+            <input type="number" id="f-nivel-item" class="form-input" placeholder="Ej. 80" min="1" max="230" oninput="updateMatSuggestions()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nivel de profesión</label>
+            <input type="number" id="f-nivel-prof" class="form-input" placeholder="Ej. 80" min="1" max="230" oninput="updateMatSuggestions()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tipo (parte del cuerpo)</label>
+            <select id="f-tipo" class="form-input form-select">
+              <option value="">— Ninguno —</option>
+              <option>Amuleto</option><option>Anillo</option><option>Bolsa</option>
+              <option>Botas</option><option>Capa</option><option>Casco</option>
+              <option>Cinturón</option><option>Escudo</option><option>Hombreras</option>
+              <option>Pecho</option><option>Arma de 1 mano</option>
+              <option>Arma de 2 manos</option><option>Segunda mano</option><option>Emblema</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Rareza</label>
+            <select id="f-rareza" class="form-input form-select" onchange="updateVersionPrevBtn()">
+              <option value="">— Ninguna —</option>
+              <option>Raro</option><option>Mítico</option><option>Legendario</option>
+              <option>Épico</option><option>Reliquia</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hint material base (visible solo para profesiones con material base conocido) -->
+      <div id="mat-base-hint" class="mat-base-hint" style="display:none"></div>
+
+      <!-- Materiales (solo crafteo) -->
+      <div id="mat-section-wrap">
+        <div class="section-label">📦 Materiales
+          <span style="font-size:0.72rem;color:var(--muted);font-weight:400;font-family:'Crimson Pro',serif;font-style:italic">
+            · los precios vienen del catálogo compartido
+          </span>
+        </div>
+        <div id="mat-suggestions" class="mat-suggestions" style="display:none"></div>
+        <div id="mat-container"></div>
+        <div class="add-mat-row">
+          <button type="button" class="add-mat-btn" onclick="addMaterialRow()">+ Añadir material</button>
+          <div id="version-prev-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Plan crafteo (solo crafteo) -->
+      <div id="plan-craftear-wrap">
+        <div class="section-label">🛒 Planificar</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">¿Cuántos craftear?</label>
+            <input type="number" id="f-plan-craftear" class="form-input" value="1" min="1" oninput="updateShoppingList()">
+          </div>
+        </div>
+        <div id="shopping-list"></div>
+      </div>
+
+      <!-- Stock -->
+      <div class="section-label">📊 Stock</div>
+      <div class="form-row-3">
+        <div class="form-group" id="stock-comprados-group">
+          <label class="form-label">Crafteados</label>
+          <input type="number" id="f-comprados" class="form-input" value="0" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">En venta</label>
+          <input type="number" id="f-en-venta" class="form-input" value="0" min="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vendidos</label>
+          <input type="number" id="f-vendidos" class="form-input" value="0" min="0">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn-save">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── POST-SAVE TOAST ── -->
+<div class="postsave-toast" id="postsave-toast" style="display:none">
+  <button class="pst-close" onclick="document.getElementById('postsave-toast').style.display='none'">✕</button>
+  <div id="postsave-content"></div>
+</div>
+
+<script src="profesiones.js"></script>
+<script>
+  // Counters en el header
+  const _origRender = render;
+  render = function() {
+    _origRender();
+    const total     = items.length;
+    const rentables = items.filter(i => { const p = calcProfit(i); return p && p.profit > 0; }).length;
+    const vendidos  = items.reduce((s, i) => s + (i.vendidos || 0), 0);
+    document.getElementById('cnt-total').textContent    = total;
+    document.getElementById('cnt-rent').textContent     = rentables;
+    document.getElementById('cnt-vendidos').textContent = vendidos;
+  };
+  render();
+</script>
+</body>
+</html>

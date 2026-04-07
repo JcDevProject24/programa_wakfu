@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wakfu — Archimonstruos</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="archimonstruos.css">
+</head>
+<body>
+
+<header>
+  <a class="nav-back" href="index.html">← Inicio</a>
+  <div class="header-icon">👹</div>
+  <div>
+    <h1>WAKFU · ARCHIMONSTRUOS</h1>
+    <p>Tracker de respawn y loot</p>
+  </div>
+  <div class="header-stats">
+    <div class="hstat"><span class="hstat-n" id="cnt-total">—</span><span class="hstat-l">Registrados</span></div>
+    <div class="hstat"><span class="hstat-n" id="cnt-disp" style="color:var(--green)">—</span><span class="hstat-l">Disponibles</span></div>
+    <div class="hstat"><span class="hstat-n" id="cnt-esp" style="color:var(--orange)">—</span><span class="hstat-l">En espera</span></div>
+  </div>
+  <div id="notif-disponibles" class="notif-disponibles" style="display:none">
+    <span class="notif-dot"></span>
+    <span id="notif-text"></span>
+  </div>
+  <button class="add-btn" onclick="openModal()">+ Añadir</button>
+</header>
+
+<div class="layout">
+
+<aside>
+  <div class="filter-section">
+    <div class="filter-title">🔍 Buscar</div>
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="search" placeholder="Nombre, región, lugar…">
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">📍 Región</div>
+    <div class="tipo-grid" id="region-grid"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">✨ Rareza del loot</div>
+    <div class="tipo-grid" id="rareza-grid"></div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">🗡 Tipo de loot</div>
+    <div class="tipo-grid" id="tipo-loot-grid">
+      <span style="font-size:0.8rem;color:var(--muted);font-style:italic">Sin tipos aún</span>
+    </div>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">↕ Ordenar por</div>
+    <select id="sort-select" class="sidebar-select" onchange="setSortBy(this.value)">
+      <option value="estado">Estado (disponibles primero)</option>
+      <option value="dinero_real">💰 Valor estimado (con % drop)</option>
+      <option value="dinero_bruto">💰 Valor bruto (sin % drop)</option>
+      <option value="nombre">Nombre</option>
+      <option value="bis">⭐ BIS primero</option>
+      <option value="mas_vendidos">💸 Más vendidos</option>
+    </select>
+  </div>
+
+  <div class="filter-section">
+    <div class="filter-title">⚙ Opciones</div>
+    <label class="toggle-row" onclick="toggleSoloDisponibles()" style="cursor:pointer;user-select:none">
+      <div class="toggle" id="toggle-disp"></div>
+      <span>Solo disponibles</span>
+    </label>
+    <label class="toggle-row" onclick="toggleSoloBis()" style="cursor:pointer;user-select:none;margin-top:10px">
+      <div class="toggle" id="toggle-bis"></div>
+      <span>Solo con BIS</span>
+    </label>
+  </div>
+</aside>
+
+<main>
+  <div class="results-bar">
+    <span id="results-text">Cargando…</span>
+  </div>
+  <div class="cards" id="cards"></div>
+  <div class="empty" id="empty" style="display:none">Sin archimonstruos registrados — pulsa <strong>+ Añadir</strong> para empezar.</div>
+</main>
+
+</div>
+
+<!-- ── MODAL ── -->
+<div class="modal-overlay" id="modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modal-title">Añadir Archimonstruo</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="archi-form" onsubmit="saveArchi(event)">
+
+      <div class="form-group">
+        <label class="form-label">Nombre</label>
+        <input type="text" id="f-nombre" class="form-input" placeholder="Ej. Nomekop" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nivel</label>
+          <input type="number" id="f-nivel" class="form-input" placeholder="Ej. 80" min="1" max="230" required
+            oninput="updateRespawnCalc(this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Región</label>
+          <input type="text" id="f-region" class="form-input" placeholder="Ej. Reino Sadida"
+            list="region-list" autocomplete="off">
+          <datalist id="region-list"></datalist>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Lugar / Zona</label>
+        <input type="text" id="f-lugar" class="form-input" placeholder="Ej. Colina Entelada"
+          list="lugar-list" autocomplete="off" oninput="autoFillRegion(this.value)">
+        <datalist id="lugar-list"></datalist>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Loots</label>
+        <div id="loots-container"></div>
+        <button type="button" class="add-loot-btn" onclick="addLootRow()">+ Añadir loot</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Respawn</label>
+        <div class="respawn-hint">
+          Calculado por nivel: <strong id="respawn-calc">—</strong>
+          &nbsp;·&nbsp;
+          <label class="toggle-row" onclick="toggleCustomRespawn()" style="display:inline-flex;cursor:pointer;gap:6px;vertical-align:middle">
+            <div class="toggle" id="custom-toggle"></div>
+            <span style="font-size:0.85rem;color:var(--text2)">Personalizar</span>
+          </label>
+        </div>
+        <div id="f-respawn-wrap" style="display:none">
+          <input type="number" id="f-respawn" class="form-input" placeholder="Tiempo en minutos (ej. 150 = 2h 30m)" min="1">
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn-save">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="archimonstruos.js"></script>
+<script>
+  // Update header counters after each render
+  const _origRender = render;
+  render = function() {
+    _origRender();
+    const total = archis.length;
+    const disp  = archis.filter(a => getStatus(a).estado === 'disponible').length;
+    const esp   = archis.filter(a => getStatus(a).estado === 'esperando').length;
+    document.getElementById('cnt-total').textContent = total;
+    document.getElementById('cnt-disp').textContent  = disp;
+    document.getElementById('cnt-esp').textContent   = esp;
+  };
+  render();
+</script>
+</body>
+</html>

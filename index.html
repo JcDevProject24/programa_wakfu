@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wakfu — Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<style>
+  .hub-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 110px);
+    padding: 40px 24px;
+  }
+  .hub-subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+  .hub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 360px));
+    gap: 24px;
+    justify-content: center;
+    width: 100%;
+    max-width: 800px;
+  }
+  .hub-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px 28px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color .2s, transform .15s, box-shadow .2s;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .hub-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-color, var(--gold)), transparent);
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .hub-card:hover { border-color: var(--card-color, var(--gold)); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+  .hub-card:hover::before { opacity: 1; }
+  .hub-card-icon { font-size: 2.6rem; filter: drop-shadow(0 0 10px var(--card-color, var(--gold))); }
+  .hub-card-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: var(--white);
+    letter-spacing: 0.1em;
+  }
+  .hub-card-desc {
+    font-size: 0.9rem;
+    color: var(--text2);
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .hub-card-stat {
+    margin-top: 8px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .hub-card-stat strong { color: var(--card-color, var(--gold2)); }
+
+  .card-mascotas  { --card-color: var(--gold); }
+  .card-archis    { --card-color: var(--red); }
+  .card-prof      { --card-color: var(--teal); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-icon">⚔</div>
+  <div>
+    <h1>WAKFU · PANEL</h1>
+    <p>Herramientas de juego</p>
+  </div>
+</header>
+
+<div class="hub-main">
+  <div class="hub-subtitle">Selecciona una sección</div>
+  <div class="hub-grid">
+
+    <a class="hub-card card-mascotas" href="mascotas.html">
+      <div class="hub-card-icon">🐾</div>
+      <div class="hub-card-title">MASCOTAS</div>
+      <div class="hub-card-desc">Guía de mascotas óptimas, de recolección y obsoletas. Buscador, filtros y rastreador de precios de subasta.</div>
+      <div class="hub-card-stat" id="stat-mascotas">Cargando…</div>
+    </a>
+
+    <a class="hub-card card-archis" href="archimonstruos.html">
+      <div class="hub-card-icon">👹</div>
+      <div class="hub-card-title">ARCHIMONSTRUOS</div>
+      <div class="hub-card-desc">Tracker de respawn. Registra kills, consulta cuándo reaparecen y sigue el valor de su loot en la subasta.</div>
+      <div class="hub-card-stat" id="stat-archis">Cargando…</div>
+    </a>
+
+    <a class="hub-card card-prof" href="profesiones.html">
+      <div class="hub-card-icon">🔨</div>
+      <div class="hub-card-title">PROFESIONES</div>
+      <div class="hub-card-desc">Crafteo y recolección. Calcula profit, gestiona materiales, historial de precios y stock en subasta.</div>
+      <div class="hub-card-stat" id="stat-prof">Cargando…</div>
+    </a>
+
+  </div>
+</div>
+
+<script>
+  // Stats mascotas (datos estáticos de mascotas.js)
+  document.getElementById('stat-mascotas').innerHTML =
+    '<strong>56</strong> mascotas óptimas · <strong>7</strong> de recolección';
+
+  // Stats archimonstruos (desde API)
+  fetch('api.php')
+    .then(r => r.json())
+    .then(archis => {
+      const disp = archis.filter(a => {
+        if (!a.ultima_muerte) return false;
+        const respawnMs = (a.respawn_min || (a.nivel < 50 ? 60 : a.nivel < 140 ? 150 : 240)) * 60000;
+        return (a.ultima_muerte + respawnMs) <= Date.now();
+      }).length;
+      const dispStr = disp > 0
+        ? ` · <strong style="color:var(--green)">${disp} disponibles ahora</strong>`
+        : '';
+      document.getElementById('stat-archis').innerHTML =
+        archis.length === 0
+          ? 'Sin registros aún'
+          : `<strong>${archis.length}</strong> registrados${dispStr}`;
+    })
+    .catch(() => { document.getElementById('stat-archis').textContent = 'Sin registros aún'; });
+
+  // Stats profesiones (desde API)
+  fetch('api_profesiones.php')
+    .then(r => r.json())
+    .then(items => {
+      if (!Array.isArray(items) || items.length === 0) {
+        document.getElementById('stat-prof').textContent = 'Sin items registrados aún';
+        return;
+      }
+      const rentables = items.filter(i => {
+        const mats = i.materiales || [];
+        const coste = mats.reduce((s, m) => s + (m.precio || 0) * (m.cantidad || 1), 0);
+        const hist  = i.historial_precios || [];
+        if (!hist.length) return false;
+        const precio = hist.sort((a,b) => b.fecha - a.fecha)[0].precio;
+        return precio - coste > 0;
+      }).length;
+      const vendidos = items.reduce((s, i) => s + (i.vendidos || 0), 0);
+      document.getElementById('stat-prof').innerHTML =
+        `<strong>${items.length}</strong> items · <strong style="color:var(--green)">${rentables}</strong> rentables · <strong style="color:var(--gold)">${vendidos}</strong> vendidos`;
+    })
+    .catch(() => { document.getElementById('stat-prof').textContent = 'Sin items registrados aún'; });
+</script>
+</body>
+</html>

@@ -1,0 +1,1035 @@
+/* ── CATEGORY TABS ── */
+.cat-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 0;
+}
+.cat-tab {
+  flex: 1;
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 4px;
+  border-radius: 5px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .2s;
+  text-align: center;
+}
+.cat-tab:hover  { border-color: var(--gold); color: var(--gold); }
+.cat-tab.active { background: var(--gold); border-color: var(--gold); color: #0d0f14; font-weight: 700; }
+
+/* ── RAREZA DEL MATERIAL (recolección: normal / raro) ── */
+.rareza-mat-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rareza-mat-normal {
+  background: rgba(140,140,140,0.12);
+  border: 1px solid rgba(140,140,140,0.35);
+  color: #aaa;
+}
+.rareza-mat-raro {
+  background: rgba(82,183,136,0.15);
+  border: 1px solid rgba(82,183,136,0.45);
+  color: var(--green);
+  text-shadow: 0 0 8px rgba(82,183,136,0.4);
+}
+
+/* ── NOMBRE ALTERNATIVO ── */
+.alt-nombre-badge {
+  font-size: 0.7rem;
+  color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-style: italic;
+}
+
+/* ── MATERIALES ── */
+.mat-section {
+  margin-bottom: 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mat-shared-note {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-style: italic;
+}
+.mat-header {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.mat-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(42,47,66,0.5);
+}
+.mat-row:last-of-type { border-bottom: none; }
+.mat-nombre   { flex: 1 1 120px; color: var(--text); min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mat-qty      { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.75rem; white-space: nowrap; }
+.mat-precio   { color: var(--text2); font-size: 0.78rem; white-space: nowrap; }
+.mat-total    { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.75rem; white-space: nowrap; min-width: 70px; text-align: right; }
+
+/* ── Precio compartido del catálogo (editable inline desde la card) ── */
+.mat-precio-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 90px;
+}
+.mat-price-inline {
+  width: 80px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text2);
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.78rem;
+  padding: 2px 4px;
+  border-radius: 4px;
+  outline: none;
+  text-align: right;
+  transition: border-color .15s, background .15s;
+  -moz-appearance: textfield;
+}
+.mat-price-inline::-webkit-outer-spin-button,
+.mat-price-inline::-webkit-inner-spin-button { -webkit-appearance: none; }
+.mat-price-inline:hover  { border-color: var(--border2); background: var(--bg3); }
+.mat-price-inline:focus  { border-color: var(--teal); background: var(--bg3); color: var(--white); }
+.mat-price-inline::placeholder { color: var(--muted); }
+.mat-shared-icon {
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+/* ── Preview de precio en el formulario de materiales ── */
+.mat-price-preview {
+  font-family: 'Cinzel', serif;
+  font-size: 0.74rem;
+  min-width: 68px;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mp-val   { color: var(--gold2); }
+.mp-empty { color: var(--muted); }
+.mat-coste-total {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  color: var(--text2);
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+.mat-coste-total strong { color: var(--orange); font-family: 'Cinzel', serif; }
+
+/* ── PROFIT ── */
+.profit-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+  font-size: 0.84rem;
+}
+.profit-precio { color: var(--text2); }
+.profit-precio strong { color: var(--gold2); font-family: 'Cinzel', serif; }
+.profit-val {
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.profit-val.profit-pos { color: var(--green); }
+.profit-val.profit-neg { color: var(--red); }
+.profit-pct {
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.profit-pct.profit-pos { background: rgba(82,183,136,0.12); color: var(--green); border: 1px solid rgba(82,183,136,0.3); }
+.profit-pct.profit-neg { background: rgba(224,82,82,0.1);   color: var(--red);   border: 1px solid rgba(224,82,82,0.3);   }
+
+/* ── STOCK INTERACTIVO ── */
+.stock-section {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.82rem;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+.stock-field {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+.stock-lbl { font-size: 0.82rem; }
+.stk-val   { color: var(--white); font-family: 'Cinzel', serif; font-size: 0.78rem; min-width: 18px; text-align: center; }
+.stk-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 3px;
+  border-radius: 3px;
+  transition: color .15s, background .15s;
+}
+.stk-btn:hover { color: var(--gold); background: rgba(201,168,76,0.1); }
+
+/* ── PRICE HISTORY ── */
+.price-history {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.ph-summary {
+  font-size: 0.8rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  transition: color .2s;
+}
+.ph-summary:hover { color: var(--text); }
+.ph-summary::marker, .ph-summary::-webkit-details-marker { display: none; }
+details[open] .ph-summary::before { content: '▾ '; }
+details:not([open]) .ph-summary::before { content: '▸ '; }
+.ph-count { font-family: 'Cinzel', serif; font-size: 0.7rem; color: var(--muted); }
+
+.ph-add-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 6px;
+  align-items: center;
+}
+.ph-input {
+  width: 130px !important;
+  font-size: 0.88rem !important;
+  padding: 5px 8px !important;
+}
+.ph-input::-webkit-outer-spin-button,
+.ph-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.ph-input { -moz-appearance: textfield; }
+.ph-add-btn {
+  background: var(--gold);
+  border: none;
+  color: #0d0f14;
+  font-family: 'Cinzel', serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .2s;
+}
+.ph-add-btn:hover { background: var(--gold2); }
+
+.ph-list { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.ph-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--bg3);
+}
+.ph-fecha  { color: var(--muted); min-width: 70px; font-size: 0.74rem; }
+.ph-precio { color: var(--gold2); font-family: 'Cinzel', serif; flex: 1; }
+.ph-vendido-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 2px;
+  opacity: 0.5;
+  transition: opacity .2s;
+}
+.ph-vendido-btn:hover  { opacity: 1; }
+.ph-vendido-btn.active { opacity: 1; }
+.ph-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0 2px;
+  transition: color .2s;
+  opacity: 0;
+}
+.ph-row:hover .ph-del-btn { opacity: 1; }
+.ph-del-btn:hover { color: var(--red); }
+.ph-empty { font-size: 0.78rem; color: var(--muted); font-style: italic; padding: 4px 0; }
+
+/* ── HINT DE MATERIAL BASE (modal crafteo) ── */
+.mat-base-hint {
+  font-size: 0.82rem;
+  color: var(--text2);
+  background: rgba(78,205,196,0.06);
+  border: 1px solid rgba(78,205,196,0.15);
+  border-radius: 6px;
+  padding: 7px 12px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.mat-base-hint strong { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.8rem; }
+.mat-base-icon { font-size: 0.9rem; }
+.mat-base-ej   { color: var(--muted); font-style: italic; font-size: 0.76rem; }
+
+/* ── LUGAR DE RECOLECCIÓN ── */
+.mat-lugar-badge {
+  font-size: 0.7rem;
+  color: var(--teal);
+  background: rgba(78,205,196,0.07);
+  border: 1px solid rgba(78,205,196,0.2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── FILA DE PROFESIÓN EN EL FORMULARIO DE MATERIALES ── */
+.mat-prof-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+.mat-prof-select {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.82rem;
+  background: var(--bg3);
+  border: 1px dashed var(--border2);
+  color: var(--text2);
+  padding: 3px 8px;
+  border-radius: 5px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s, color .2s;
+  width: auto;
+  max-width: 200px;
+}
+.mat-prof-select:hover  { border-color: var(--green); color: var(--text); }
+.mat-prof-select:focus  { border-color: var(--green); }
+.mat-prof-select option { background: var(--bg2); }
+.mat-prof-hint {
+  font-size: 0.74rem;
+  color: var(--green);
+  font-style: italic;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+
+/* ── VINCULACIÓN A ITEM CRAFTEADO ── */
+.mat-link-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mat-link-suggestions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+/* Botones de rareza en el selector de vinculación — heredan color de .rareza-* */
+.mat-link-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+.mat-link-btn:hover { filter: brightness(1.3); }
+.mat-link-btn.rareza-raro       { color: #52b788; }
+.mat-link-btn.rareza-mitico     { color: #e08c3a; }
+.mat-link-btn.rareza-legendario { color: #e8c840; }
+.mat-link-btn.rareza-epico      { color: #e07aaa; }
+.mat-link-btn.rareza-reliquia   { color: #9b72cf; }
+
+/* Estado vinculado */
+.mat-linked-info {
+  font-size: 0.78rem;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.mat-unlink-btn {
+  font-size: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mat-unlink-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* Precio vinculado (🔗) en la card */
+.mat-linked-price {
+  color: var(--teal);
+  font-family: 'Cinzel', serif;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+.mat-row-linked { background: rgba(78,205,196,0.04); }
+.mp-linked { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.74rem; }
+
+/* ── COMPARATIVA COMPRA vs CRAFTEO ── */
+.mat-opt-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.mat-opt {
+  font-family: 'Cinzel', serif;
+  font-size: 0.68rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition: all .15s;
+}
+.mat-opt-active {
+  background: rgba(82,183,136,0.12);
+  border-color: rgba(82,183,136,0.4);
+  color: var(--green);
+}
+.mat-opt-dim {
+  color: var(--muted);
+  background: rgba(42,47,66,0.3);
+  border-color: var(--border);
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+.mat-opt-sep {
+  font-size: 0.62rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* ── TARJETA RECOLECCIÓN — GRID DE VARIANTES ── */
+.card-recoleccion { border-color: rgba(82,183,136,0.2); }
+.card-recoleccion:hover { border-color: rgba(82,183,136,0.5); }
+
+/* ── CARD RECOLECCIÓN — nueva layout vertical ── */
+.rec-variantes-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.rec-variante {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.rec-empty { display: none; } /* ocultar variantes sin datos */
+
+.rec-var-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+  min-width: 52px;
+}
+.var-normal  { color: var(--text2); }
+.var-raro    { color: #52b788; }
+.var-semilla { color: #8fc97a; }
+
+.rec-var-precio {
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  color: var(--gold2);
+  min-width: 60px;
+}
+.rec-var-precio .muted { color: var(--muted); font-style: italic; font-size: 0.75rem; font-family: 'Crimson Pro', serif; }
+
+.rec-var-stock {
+  display: flex;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--text2);
+  flex: 1;
+}
+
+.rec-hist {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.rec-var-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/* ── SUGERENCIAS DE MATERIALES BASE ── */
+.mat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  margin-bottom: 4px;
+  border-top: 1px solid var(--border);
+}
+.sug-tier-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+  width: 100%;
+  margin-bottom: 2px;
+}
+.sug-sep { font-size: 0.72rem; color: var(--muted); }
+.sug-btn {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+  border-radius: 4px;
+  border: 1px dashed var(--border2);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.sug-btn:hover       { border-color: var(--teal); color: var(--teal); border-style: solid; }
+.sug-btn-base        { border-color: rgba(78,205,196,0.4); color: var(--teal); border-style: solid; }
+.sug-btn-known       { border-style: solid; color: var(--green); border-color: rgba(82,183,136,0.4); }
+.sug-btn-superglu    { border-color: rgba(224,140,58,0.4); color: var(--orange); border-style: solid; }
+.sug-btn-superglu:hover { border-color: var(--orange); }
+
+/* ── CATÁLOGO DE MATERIALES (sidebar) ── */
+.search-input {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.88rem;
+  padding: 5px 9px;
+  border-radius: 5px;
+  outline: none;
+  transition: border-color .2s;
+  box-sizing: border-box;
+}
+.search-input:focus { border-color: var(--gold); }
+
+#catalog-list {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+.catalog-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(42,47,66,0.4);
+  font-size: 0.8rem;
+}
+.catalog-row:last-child { border-bottom: none; }
+.catalog-nombre {
+  flex: 1;
+  color: var(--text2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.catalog-price-input { width: 72px !important; }
+.cat-empty { font-size: 0.78rem; color: var(--muted); font-style: italic; padding: 4px 0; }
+
+/* ── ITEM META ── */
+.item-nivel {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  color: var(--orange);
+  background: rgba(224,140,58,0.1);
+  border: 1px solid rgba(224,140,58,0.3);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.prof-badge {
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+/* Rareza badges (mismos que archimonstruos) */
+.loot-rareza-badge {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* Colores reales del juego: raro=verde, mitico=naranja, legendario=amarillo, epico=rosa, reliquia=morado */
+.rareza-raro       { background: rgba(82,183,136,0.15);  border: 1px solid #52b788; color: #52b788; }
+.rareza-mitico     { background: rgba(224,140,58,0.15);  border: 1px solid #e08c3a; color: #e08c3a; }
+.rareza-legendario { background: rgba(232,200,64,0.15);  border: 1px solid #e8c840; color: #e8c840; }
+.rareza-epico      { background: rgba(224,122,170,0.15); border: 1px solid #e07aaa; color: #e07aaa; }
+.rareza-reliquia   { background: rgba(155,114,207,0.15); border: 1px solid #9b72cf; color: #9b72cf; }
+
+.rareza-btn.rareza-raro       { color: #52b788; border-color: #52b788; }
+.rareza-btn.rareza-mitico     { color: #e08c3a; border-color: #e08c3a; }
+.rareza-btn.rareza-legendario { color: #e8c840; border-color: #e8c840; }
+.rareza-btn.rareza-epico      { color: #e07aaa; border-color: #e07aaa; }
+.rareza-btn.rareza-reliquia   { color: #9b72cf; border-color: #9b72cf; }
+.rareza-btn.active.rareza-raro       { background: #52b788; color: #0d0f14; }
+.rareza-btn.active.rareza-mitico     { background: #e08c3a; color: #0d0f14; }
+.rareza-btn.active.rareza-legendario { background: #e8c840; color: #0d0f14; }
+.rareza-btn.active.rareza-epico      { background: #e07aaa; color: #0d0f14; }
+.rareza-btn.active.rareza-reliquia   { background: #9b72cf; color: #fff; }
+
+.loot-tipo-badge {
+  font-size: 0.7rem;
+  color: var(--teal);
+  background: rgba(78,205,196,0.08);
+  border: 1px solid rgba(78,205,196,0.2);
+  border-radius: 3px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── FORM FIELDS ── */
+.form-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--white);
+  font-family: 'Crimson Pro', serif;
+  font-size: 1rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.form-select:focus { border-color: var(--gold); }
+
+.sidebar-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.9rem;
+  padding: 7px 10px;
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.sidebar-select:focus { border-color: var(--gold); }
+
+.loot-form-top    { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.loot-form-row    { margin-bottom: 10px; }
+
+/* ── ADD BUTTON ── */
+.add-btn {
+  background: var(--gold);
+  border: none;
+  color: #0d0f14;
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.add-btn:hover { background: var(--gold2); transform: translateY(-1px); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; backdrop-filter: blur(4px);
+}
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 28px;
+  width: min(580px, 95vw);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px;
+}
+.modal-head h2 {
+  font-family: 'Cinzel', serif; font-size: 1.05rem; font-weight: 700;
+  color: var(--gold2); letter-spacing: 0.08em;
+}
+.modal-close {
+  background: transparent; border: 1px solid var(--border2); color: var(--muted);
+  border-radius: 4px; padding: 4px 9px; cursor: pointer; font-size: 0.9rem; transition: all .2s;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block; font-size: 0.68rem; color: var(--gold);
+  font-family: 'Cinzel', serif; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.form-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--white); font-family: 'Crimson Pro', serif; font-size: 1rem;
+  padding: 8px 12px; border-radius: 6px; outline: none; transition: border-color .2s;
+}
+.form-input:focus { border-color: var(--gold); }
+.form-input::-webkit-outer-spin-button,
+.form-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.form-input[type=number] { -moz-appearance: textfield; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+.section-label {
+  font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.12em;
+  color: var(--gold); text-transform: uppercase; margin: 16px 0 10px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+.add-mat-btn {
+  background: transparent; border: 1px dashed var(--border2); color: var(--text2);
+  border-radius: 5px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem;
+  transition: all .2s; width: 100%;
+}
+.add-mat-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+.action-btn {
+  background: transparent; border: 1px solid var(--border2); color: var(--text2);
+  border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem;
+  transition: all .2s; line-height: 1; flex-shrink: 0;
+}
+.action-btn:hover { border-color: var(--gold); color: var(--gold); }
+.action-btn.danger:hover { border-color: var(--red); color: var(--red); }
+.card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.modal-footer {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border);
+}
+.btn-cancel {
+  background: transparent; border: 1px solid var(--border2); color: var(--text2);
+  font-family: 'Cinzel', serif; font-size: 0.78rem; letter-spacing: 0.06em;
+  padding: 8px 18px; border-radius: 6px; cursor: pointer; transition: all .2s;
+}
+.btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+.btn-save {
+  background: var(--gold); border: none; color: #0d0f14;
+  font-family: 'Cinzel', serif; font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 0.06em; padding: 8px 22px; border-radius: 6px;
+  cursor: pointer; transition: background .2s;
+}
+.btn-save:hover { background: var(--gold2); }
+
+/* ── SHOPPING LIST (¿cuántos craftear?) ── */
+#shopping-list {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+#shopping-list:empty { display: none; }
+.sl-header {
+  font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--gold); margin-bottom: 6px;
+}
+.sl-row {
+  display: flex; align-items: center; gap: 8px; padding: 2px 0;
+  border-bottom: 1px solid rgba(42,47,66,0.4);
+}
+.sl-row:last-of-type { border-bottom: none; }
+.sl-nombre { flex: 1; color: var(--text2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sl-qty    { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.74rem; white-space: nowrap; }
+.sl-coste  { color: var(--gold2); font-family: 'Cinzel', serif; font-size: 0.74rem; white-space: nowrap; min-width: 68px; text-align: right; }
+.sl-coste.muted { color: var(--muted); font-family: 'Crimson Pro', serif; font-style: italic; }
+.sl-total  {
+  text-align: right; margin-top: 5px; font-size: 0.82rem; color: var(--text2);
+  border-top: 1px solid var(--border); padding-top: 4px;
+}
+.sl-total strong { color: var(--orange); font-family: 'Cinzel', serif; }
+
+/* ── POST-SAVE TOAST ── */
+.postsave-toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 500;
+  background: var(--bg2); border: 1px solid var(--gold); border-radius: 10px;
+  padding: 16px 18px; min-width: 260px; max-width: 360px;
+  box-shadow: 0 4px 28px rgba(0,0,0,0.5);
+  animation: toast-in .25s ease;
+}
+@keyframes toast-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+.pst-close {
+  position: absolute; top: 8px; right: 10px;
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 0.9rem; transition: color .15s; line-height: 1;
+}
+.pst-close:hover { color: var(--red); }
+.pst-name { font-family: 'Cinzel', serif; font-size: 0.88rem; color: var(--gold2); margin-bottom: 8px; padding-right: 20px; }
+.pst-profit {
+  font-size: 0.84rem; color: var(--text2); margin-bottom: 10px;
+  line-height: 1.6; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.pst-versions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pst-hint     { font-size: 0.72rem; color: var(--muted); }
+.pst-btn {
+  font-family: 'Cinzel', serif; font-size: 0.66rem; letter-spacing: 0.05em;
+  padding: 4px 10px; border-radius: 5px;
+  border: 1px solid var(--border2); background: transparent; color: var(--text2);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.pst-btn:hover       { border-color: var(--gold); color: var(--gold); }
+.pst-btn-sup         { border-color: rgba(82,183,136,0.5); color: var(--green); }
+.pst-btn-sup:hover   { background: rgba(82,183,136,0.08); }
+
+/* ── STOCK PENDIENTE DE LISTAR ── */
+.stock-pendiente {
+  font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+  background: rgba(224,140,58,0.15); border: 1px solid rgba(224,140,58,0.5);
+  color: var(--orange); white-space: nowrap; cursor: default;
+  animation: pulse-warn 2s ease infinite;
+}
+@keyframes pulse-warn {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ── COMMON / RARO TOGGLE (material rows) ── */
+.mat-rareza-row {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 5px; flex-wrap: wrap;
+}
+.mat-rr-btn {
+  font-size: 0.71rem; padding: 2px 9px; border-radius: 4px;
+  border: 1px solid var(--border2); background: transparent; color: var(--muted);
+  cursor: pointer; transition: all .15s;
+}
+.mat-rr-btn.active {
+  background: rgba(180,155,80,0.15); border-color: var(--gold2); color: var(--gold);
+}
+.mat-rr-raro {
+  border-color: rgba(186,95,210,0.4); color: rgba(186,95,210,0.7);
+}
+.mat-rr-raro.active {
+  background: rgba(186,95,210,0.12); border-color: rgba(186,95,210,0.7); color: #c47de0;
+}
+.mat-rr-info {
+  font-size: 0.72rem; color: var(--text2); font-style: italic; flex: 1;
+}
+.mat-rr-info strong { color: var(--text); font-style: normal; }
+.mr-precio { color: var(--gold); font-style: normal; }
+
+/* ── CREAR Y VINCULAR (stub) ── */
+.mat-create-btn {
+  font-size: 0.7rem; padding: 2px 9px; border-radius: 4px;
+  border: 1px dashed rgba(82,183,136,0.5); background: transparent;
+  color: var(--green); cursor: pointer; transition: all .15s;
+}
+.mat-create-btn:hover {
+  background: rgba(82,183,136,0.1); border-color: var(--green);
+}
+
+/* ── REPONER BADGE ── */
+.stock-reponer {
+  font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+  background: rgba(82,183,136,0.12); border: 1px solid rgba(82,183,136,0.5);
+  color: var(--green); white-space: nowrap; cursor: default;
+  animation: pulse-warn 2.5s ease infinite;
+}
+
+/* ── PRECIO OBSOLETO (>5h) ── */
+.mat-row-stale {
+  background: rgba(224,140,58,0.06);
+  border-left: 2px solid rgba(224,140,58,0.45);
+  border-radius: 0 4px 4px 0;
+}
+.stale-icon {
+  font-style: normal; font-size: 0.72rem; color: var(--orange);
+  opacity: 0.85; cursor: default;
+}
+.price-stale-icon {
+  font-size: 0.7rem; margin-left: 6px; color: var(--orange);
+}
+.ph-stale > summary {
+  color: var(--orange);
+}
+
+/* ── ADD-MAT ROW (botón material + botones versión) ── */
+.add-mat-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px;
+}
+#version-prev-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.ver-prev-btn {
+  font-size: 0.7rem; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid rgba(180,155,80,0.4); background: rgba(180,155,80,0.07);
+  color: var(--gold2); cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.ver-prev-btn:hover { background: rgba(180,155,80,0.15); border-color: var(--gold); color: var(--gold); }
+.ver-next-btn {
+  border-color: rgba(82,183,136,0.4); background: rgba(82,183,136,0.07); color: var(--green);
+}
+.ver-next-btn:hover { background: rgba(82,183,136,0.15); border-color: var(--green); }
+
+/* ── FILTRO DE NIVEL ── */
+.nivel-range-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.nivel-input {
+  flex: 1; min-width: 0;
+  background: var(--panel2); border: 1px solid var(--border2); border-radius: 4px;
+  color: var(--text); font-size: 0.82rem; padding: 5px 7px; text-align: center;
+  -moz-appearance: textfield;
+}
+.nivel-input::-webkit-inner-spin-button,
+.nivel-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.nivel-input:focus { outline: none; border-color: var(--gold2); }
+.nivel-sep { color: var(--muted); font-size: 0.9rem; flex-shrink: 0; }
+
+/* ── LABEL VARIANTES EN MODAL ── */
+.rec-var-btns-label {
+  font-size: 0.72rem; font-family: 'Cinzel', serif; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted); margin-top: 10px; margin-bottom: 6px;
+}
+
+/* ── MINI-FORMULARIOS DE VARIANTE (modal edición recolección) ── */
+#rec-var-btns {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.rec-var-mini-form {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px; padding: 8px 10px;
+}
+.rec-var-mini-header {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+}
+.rec-var-mini-header.var-raro    { color: var(--green); }
+.rec-var-mini-header.var-semilla { color: #b08fe0; }
+.rec-var-mini-nombre {
+  font-size: 0.82rem; color: var(--text2); margin-bottom: 6px; font-style: italic;
+}
+.rec-var-mini-row {
+  display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
+}
+.rec-var-mini-save {
+  font-size: 0.75rem; padding: 5px 12px; border-radius: 4px; cursor: pointer;
+  border: 1px solid rgba(180,155,80,0.5); background: rgba(180,155,80,0.1);
+  color: var(--gold2); transition: all .15s; white-space: nowrap;
+}
+.rec-var-mini-save:hover { background: rgba(180,155,80,0.2); border-color: var(--gold); color: var(--gold); }
+.rec-var-mini-save.var-raro    { border-color: rgba(82,183,136,0.5); background: rgba(82,183,136,0.08); color: var(--green); }
+.rec-var-mini-save.var-raro:hover    { background: rgba(82,183,136,0.18); }
+.rec-var-mini-save.var-semilla { border-color: rgba(138,99,210,0.5); background: rgba(138,99,210,0.08); color: #b08fe0; }
+.rec-var-mini-save.var-semilla:hover { background: rgba(138,99,210,0.18); }
+
+/* ── BOTONES AÑADIR VARIANTE (recolección) ── */
+.rec-add-btns {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.rec-add-var-btn {
+  font-size: 0.7rem; padding: 3px 10px; border-radius: 4px;
+  border: 1px solid rgba(140,140,140,0.35); background: rgba(140,140,140,0.07);
+  color: var(--text2); cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.rec-add-var-btn:hover { border-color: var(--gold); color: var(--gold); background: rgba(180,155,80,0.1); }
+.rec-add-var-btn.var-raro { border-color: rgba(82,183,136,0.35); background: rgba(82,183,136,0.07); color: var(--green); }
+.rec-add-var-btn.var-raro:hover { border-color: var(--green); background: rgba(82,183,136,0.15); }
+.rec-add-var-btn.var-semilla { border-color: rgba(138,99,210,0.35); background: rgba(138,99,210,0.07); color: #b08fe0; }
+.rec-add-var-btn.var-semilla:hover { border-color: #b08fe0; background: rgba(138,99,210,0.15); }
+
+/* ── COPIAR NOMBRE MATERIAL ── */
+.mat-copy-btn {
+  background: none; border: none; cursor: pointer; font-size: 0.82rem;
+  padding: 0 3px; opacity: 0.5; transition: opacity .15s; flex-shrink: 0;
+}
+.mat-copy-btn:hover { opacity: 1; }
