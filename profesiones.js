@@ -107,9 +107,10 @@ const PROF_EMOJI = {
 };
 
 // ─────────────────────────────────────────────
-// PRECIOS — FRESCURA (5 h de cooldown)
+// PRECIOS — FRESCURA (6 h de cooldown, solo si precio ≥ 100)
 // ─────────────────────────────────────────────
-const STALE_MS = 5 * 60 * 60 * 1000; // 5 horas
+const STALE_MS        = 6 * 60 * 60 * 1000; // 6 horas
+const STALE_MIN_PRICE = 100;                 // precios menores no se marcan como obsoletos
 
 function getMatFecha(nombre) {
   try { return (JSON.parse(localStorage.getItem('wf_mat_fechas') || '{}'))[normName(nombre)] || 0; }
@@ -122,19 +123,20 @@ function setMatFecha(nombre) {
     localStorage.setItem('wf_mat_fechas', JSON.stringify(f));
   } catch {}
 }
-// Precio de material obsoleto: si hay precio en catálogo y fecha desconocida o > STALE_MS
+// Precio de material obsoleto: si hay precio ≥ STALE_MIN_PRICE en catálogo y fecha > STALE_MS
 function isMatStale(nombre) {
   if (!nombre) return false;
   const precio = getCatalogPrice(nombre);
-  if (!precio) return false;
+  if (!precio || precio < STALE_MIN_PRICE) return false;
   const fecha = getMatFecha(nombre);
   return !fecha || Date.now() - fecha > STALE_MS;
 }
-// Precio de venta obsoleto: última entrada del historial > STALE_MS
+// Precio de venta obsoleto: precio ≥ STALE_MIN_PRICE y última entrada > STALE_MS
 function isPriceStale(item) {
   const hist = item.historial_precios || [];
   if (!hist.length) return false;
   const last = hist.reduce((a, b) => b.fecha > a.fecha ? b : a);
+  if (last.precio < STALE_MIN_PRICE) return false;
   return Date.now() - last.fecha > STALE_MS;
 }
 
@@ -676,7 +678,7 @@ function buildCard(item) {
         const compraBadge = (isActive) => {
           const cls   = isActive ? 'mat-opt-active' : 'mat-opt-dim';
           const title = isActive ? 'Precio subasta · editable' : 'Precio subasta · editable (tachado = más caro que craftear)';
-          return `<span class="mat-opt ${cls}" title="${title}">🛒 <input class="mat-opt-input${isActive ? '' : ' mat-opt-input-dim'}" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onchange="updateCatalogPrice('${esc}',this.value)"></span>`;
+          return `<span class="mat-opt ${cls}" title="${title}">🛒 <input class="mat-opt-input${isActive ? '' : ' mat-opt-input-dim'}" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onkeydown="if(event.key==='Enter'){updateCatalogPrice('${esc}',this.value);this.blur();}" onchange="updateCatalogPrice('${esc}',this.value)"></span>`;
         };
         let comparHtml = '';
         if (info.precioCreacion > 0 && info.precioCompra > 0) {
@@ -710,13 +712,14 @@ function buildCard(item) {
 
       return `<div class="mat-row${stale ? ' mat-row-stale' : ''}">
         <span class="mat-nombre">
-          <span class="mat-nombre-text">${m.nombre}${stale ? ' <span class="stale-icon" title="Precio posiblemente desactualizado (>5h)">⏱</span>' : ''}</span>
+          <span class="mat-nombre-text">${m.nombre}${stale ? ' <span class="stale-icon" title="Precio posiblemente desactualizado (>6h)">⏱</span>' : ''}</span>
           <button class="copy-name-btn" onclick="navigator.clipboard.writeText('${esc}')" title="Copiar nombre">⎘</button>
         </span>
         <span class="mat-qty">×${m.cantidad}</span>
         <div class="mat-precio-wrap">
           <input class="mat-price-inline" type="number" value="${precioCat || ''}"
             placeholder="—" min="0"
+            onkeydown="if(event.key==='Enter'){updateCatalogPrice('${esc}',this.value);this.blur();}"
             onchange="updateCatalogPrice('${esc}', this.value)"
             title="⟳ Precio compartido — al cambiar aquí se actualiza en TODOS los ítems que usan '${m.nombre}'">
           <span class="mat-shared-icon" title="Precio compartido con el catálogo">⟳</span>
@@ -752,9 +755,10 @@ function buildCard(item) {
         <span class="profit-precio">💰 Precio catálogo:
           <input class="mat-price-inline" type="number" value="${pc || ''}" min="0"
             placeholder="—" style="width:80px"
+            onkeydown="if(event.key==='Enter'){updateCatalogPrice('${escNombre}',this.value);this.blur();}"
             onchange="updateCatalogPrice('${escNombre}', this.value)"
             title="Precio compartido · se actualiza en todas las recetas que usen '${item.nombre}'">
-          <span class="mat-shared-icon${staleMat ? ' stale-icon' : ''}" title="${staleMat ? 'Precio posiblemente desactualizado (>5h)' : 'Precio compartido'}">⟳${staleMat ? '⏱' : ''}</span>
+          <span class="mat-shared-icon${staleMat ? ' stale-icon' : ''}" title="${staleMat ? 'Precio posiblemente desactualizado (>6h) · haz clic en el input para actualizarlo' : 'Precio compartido'}">⟳${staleMat ? '⏱' : ''}</span>
         </span>
       </div>`;
     } else {
@@ -820,7 +824,7 @@ function buildCard(item) {
   const precioStr    = getPrecioActual(item) ? ` · <span style="color:var(--gold2)">${fmtK(getPrecioActual(item))}</span>` : '';
   const histLabel    = isCrafteo ? '📈 Historial de precios' : '💎 Precio del material';
   const priceStale   = isPriceStale(item);
-  const staleLabel   = priceStale ? ' <span class="stale-icon price-stale-icon" title="Precio de venta posiblemente desactualizado (>5h)">⏱ Actualizar precio</span>' : '';
+  const staleLabel   = priceStale ? ' <span class="stale-icon price-stale-icon" title="Precio de venta posiblemente desactualizado (>6h)">⏱ Actualizar precio</span>' : '';
   const histHtml   = `<details class="price-history${priceStale ? ' ph-stale' : ''}">
     <summary class="ph-summary">
       ${histLabel}${precioStr}${staleLabel}
