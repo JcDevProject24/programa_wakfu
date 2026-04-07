@@ -1,5 +1,5 @@
-# ── Claude Code ──────────────────────────────
-.claude/
+# ── Cl Code ──────────────────────────────
+CL*.md
 
 # ── Configuración local PHP / BD ─────────────
 config.php
