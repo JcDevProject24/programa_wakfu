@@ -69,8 +69,21 @@ function getSufijo(nivelItem) {
 function getMatBaseNombre(profesion, nivelItem) {
   const base = PROF_MAT_BASE[profesion];
   if (!base) return null;
-  const sufijo = getSufijo(nivelItem);
+  const sufijo = base.masc ? getSufijoMasc(nivelItem) : getSufijo(nivelItem);
   return sufijo ? `${base.nombre} ${sufijo}` : base.nombre;
+}
+// Devuelve todos los materiales base aplicables a la profesión y nivel (incluye extras de Ebanista)
+function getMatBaseNombresAll(profesion, nivelItem) {
+  const base = PROF_MAT_BASE[profesion];
+  if (!base) return [];
+  const sufijo  = base.masc ? getSufijoMasc(nivelItem) : getSufijo(nivelItem);
+  const result  = [{ nombre: sufijo ? `${base.nombre} ${sufijo}` : base.nombre, base }];
+  for (const ex of (base.extras || [])) {
+    if (nivelItem < (ex.nivelMin || 0)) continue;
+    const sufijoEx = ex.masc ? getSufijoMasc(nivelItem) : getSufijo(nivelItem);
+    result.push({ nombre: sufijoEx ? `${ex.nombre} ${sufijoEx}` : ex.nombre, base: ex });
+  }
+  return result;
 }
 function getMatSecNombres(nivelItem) {
   const sufijo = getSufijo(nivelItem);
@@ -93,11 +106,16 @@ const PROF_TIPOS = {
 // Material base típico por profesión (escala con el nivel: tosco → rudimentario → … hasta lvl 160)
 // Útil para autocompletado y como referencia al añadir materiales a una receta
 const PROF_MAT_BASE = {
-  'Sastre':           { nombre: 'Fibra',  ejemplo: 'Fibra tosca, Fibra rudimentaria…' },
-  'Maestro de armas': { nombre: 'Mango',  ejemplo: 'Mango tosco, Mango rudimentario…' },
-  'Marroquinero':     { nombre: 'Cuero',  ejemplo: 'Cuero tosco, Cuero rudimentario…' },
-  'Joyero':           { nombre: 'Gema',   ejemplo: 'Gema tosca, Gema rudimentaria…'   },
-  'Armero':           { nombre: 'Placa',  ejemplo: 'Placa tosca, Placa rudimentaria…' },
+  'Sastre':           { nombre: 'Fibra',      ejemplo: 'Fibra tosca, Fibra rudimentaria…' },
+  'Maestro de armas': { nombre: 'Mango',      ejemplo: 'Mango tosco, Mango rudimentario…' },
+  'Marroquinero':     { nombre: 'Cuero',      ejemplo: 'Cuero tosco, Cuero rudimentario…' },
+  'Joyero':           { nombre: 'Gema',       ejemplo: 'Gema tosca, Gema rudimentaria…'   },
+  'Armero':           { nombre: 'Placa',      ejemplo: 'Placa tosca, Placa rudimentaria…' },
+  'Cocinero':         { nombre: 'Especia',    ejemplo: 'Especia tosca, Especia rudimentaria…' },
+  'Peletero':         { nombre: 'Esencia',    ejemplo: 'Esencia tosca (nv.5), Esencia rudimentaria (nv.15)…' },
+  // Ebanista tiene dos materiales base: Escuadrita (femenino, nv.0+) y Orbe (masculino, nv.45+)
+  'Ebanista':         { nombre: 'Escuadrita', ejemplo: 'Escuadrita tosca, Escuadrita rudimentaria…',
+                        extras: [{ nombre: 'Orbe', masc: true, nivelMin: 45, ejemplo: 'Orbe rústico (nv.45), Orbe bruto (nv.55)…' }] },
 };
 
 const PROF_EMOJI = {
@@ -177,11 +195,11 @@ async function updateCatalogPrice(nombre, precio) {
   catalogNames[key] = nombre.trim();
   setMatFecha(nombre);
 
-  // Sincronizar historial_precios de cualquier item material o recolección con ese nombre
-  // (son siempre precio de subasta, así que la fuente de verdad es el catálogo)
+  // Sincronizar historial_precios de items material, recolección y crafteo con ese nombre
+  // Los crafteo también pueden registrar precios de compra en el mercado
   const now = Date.now();
   const toSync = items.filter(i =>
-    (i.categoria === 'material' || i.categoria === 'recoleccion') &&
+    (i.categoria === 'material' || i.categoria === 'recoleccion' || i.categoria === 'crafteo') &&
     normName(i.nombre) === key
   );
   toSync.forEach(i => {
@@ -504,6 +522,27 @@ async function addPriceFromCard(id) {
     }).catch(() => {});
   }
 
+  render();
+  await pushItem(item);
+}
+
+// Versión de addPriceFromCard para cards virtuales (material básico con item real)
+// Lee el input por inputId (vpa-...) en lugar de pa-{id}
+async function addVirtualPriceFromCard(nombre, id) {
+  const inputId = `vpa-${normName(nombre).replace(/\s/g,'_')}`;
+  const input   = document.getElementById(inputId);
+  const precio  = parseInt(input?.value, 10);
+  if (!precio || precio <= 0) { input?.focus(); return; }
+  input.value = '';
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  if (!item.historial_precios) item.historial_precios = [];
+  item.historial_precios.push({ precio, fecha: Date.now(), vendido: false });
+  const k = normName(item.nombre);
+  catalog[k]      = precio;
+  catalogNames[k] = item.nombre;
+  fetch(API_MAT, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nombre: item.nombre, precio }) }).catch(() => {});
   render();
   await pushItem(item);
 }
@@ -865,6 +904,123 @@ function buildCard(item) {
 }
 
 // ─────────────────────────────────────────────
+// HISTORIAL DE CATÁLOGO (localStorage) — para cards virtuales
+// ─────────────────────────────────────────────
+const LS_CAT_HIST = 'wf_cat_historial';
+
+function getCatHist(nombre) {
+  try { return (JSON.parse(localStorage.getItem(LS_CAT_HIST) || '{}'))[normName(nombre)] || []; }
+  catch { return []; }
+}
+function addCatHist(nombre, precio) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_CAT_HIST) || '{}');
+    const key = normName(nombre);
+    if (!all[key]) all[key] = [];
+    all[key].push({ precio, fecha: Date.now() });
+    localStorage.setItem(LS_CAT_HIST, JSON.stringify(all));
+  } catch {}
+}
+function delCatHist(nombre, idx) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_CAT_HIST) || '{}');
+    const key = normName(nombre);
+    if (all[key]) { all[key].splice(idx, 1); localStorage.setItem(LS_CAT_HIST, JSON.stringify(all)); }
+  } catch {}
+  render();
+}
+function addCatPriceFromCard(nombre) {
+  const inputId = `vpa-${normName(nombre).replace(/\s/g,'_')}`;
+  const input   = document.getElementById(inputId);
+  const precio  = parseInt(input?.value, 10);
+  if (!precio || precio <= 0) { input?.focus(); return; }
+  input.value = '';
+  addCatHist(nombre, precio);
+  updateCatalogPrice(nombre, precio);
+}
+
+// ─────────────────────────────────────────────
+// CARDS VIRTUALES — Superglú y materiales básicos
+// ─────────────────────────────────────────────
+function _buildCardMatVirtual(nombre, nivelMin, nivelMax) {
+  const precio  = getCatalogPrice(nombre);
+  const stale   = isMatStale(nombre);
+  const esc     = nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const inputId = `vpa-${normName(nombre).replace(/\s/g,'_')}`;
+
+  // Si existe un item real con ese nombre, usar su historial de BD (fuente de verdad)
+  const realItem = items.find(i => normName(i.nombre) === normName(nombre));
+  let hist, addFn, delFn;
+  if (realItem) {
+    const eid = realItem.id.replace(/'/g, "\\'");
+    hist   = (realItem.historial_precios || []).map((e, i) => ({ ...e, _i: i })).sort((a, b) => b.fecha - a.fecha);
+    addFn  = `addVirtualPriceFromCard('${esc}','${eid}')`;
+    delFn  = (i) => `deletePrice('${eid}',${hist[i]._i})`;
+  } else {
+    const catHist = getCatHist(nombre).slice().reverse();
+    hist   = catHist.map((e, i) => ({ ...e, _i: catHist.length - 1 - i }));
+    addFn  = `addCatPriceFromCard('${esc}')`;
+    delFn  = (i) => `delCatHist('${esc}',${hist[i]._i})`;
+  }
+
+  const histRows = hist.slice(0, 5).map((e, i) => `
+    <div class="ph-row">
+      <span class="ph-fecha">${timeAgo(e.fecha)}</span>
+      <span class="ph-precio">${fmtK(e.precio)}</span>
+      <button class="ph-del-btn" onclick="${delFn(i)}" title="Eliminar">🗑</button>
+    </div>`).join('');
+
+  return `<div class="card card-superglu">
+    <div class="card-head">
+      <div class="card-emoji">📦</div>
+      <div style="flex:1;min-width:0">
+        <div class="card-name"><span class="card-name-text">${nombre}</span></div>
+        <div class="archi-meta">
+          <span class="item-nivel">Nv.${nivelMin}–${nivelMax}</span>
+        </div>
+      </div>
+    </div>
+    <div class="profit-section" style="gap:8px">
+      <span class="profit-precio">💰 Precio actual:${stale ? ' <span class="stale-icon" title="Posiblemente desactualizado (>6h)">⏱</span>' : ''}</span>
+      <strong style="color:var(--gold2);font-family:'Cinzel',serif">${precio ? fmtK(precio) : '—'}</strong>
+      <span class="mat-shared-icon" title="Precio compartido con el catálogo">⟳</span>
+    </div>
+    <details class="price-history${stale ? ' ph-stale' : ''}">
+      <summary class="ph-summary">
+        💎 Historial de precios <span class="ph-count">(${hist.length})</span>
+      </summary>
+      <div class="ph-add-row">
+        <input type="number" class="form-input ph-input" id="${inputId}"
+          placeholder="Nuevo precio" min="0"
+          onkeydown="if(event.key==='Enter')${addFn}">
+        <button class="ph-add-btn" onclick="${addFn}">+ Añadir</button>
+      </div>
+      ${hist.length ? `<div class="ph-list">${histRows}</div>` : '<div class="ph-empty">Sin entradas — introduce un precio arriba</div>'}
+    </details>
+  </div>`;
+}
+function buildCardSuperglu(tier) {
+  const nivelItem = tier * 10 + 1;
+  const nombre    = getSupergluNombre(nivelItem);
+  return _buildCardMatVirtual(nombre, tier * 10, tier * 10 + 9);
+}
+
+function buildCardsMatProf(prof) {
+  const data = PROF_MAT_BASE[prof];
+  if (!data) return '';
+  const allMats = [data, ...(data.extras || [])];
+  return allMats.map(mat => {
+    return SUFIJOS_NIVEL.map((_, tier) => {
+      const nivelItem = tier * 10 + 1;
+      if (mat.nivelMin !== undefined && nivelItem < mat.nivelMin) return '';
+      const sufijo = mat.masc ? getSufijoMasc(nivelItem) : getSufijo(nivelItem);
+      const nombre = sufijo ? `${mat.nombre} ${sufijo}` : mat.nombre;
+      return _buildCardMatVirtual(nombre, tier * 10, tier * 10 + 9);
+    }).join('');
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
 // RENDER
 // ─────────────────────────────────────────────
 function render() {
@@ -875,6 +1031,24 @@ function render() {
   updateSidebar();
   updateMatDatalist();
   renderCatalog();
+  renderMatBase();
+  renderSuperglu();
+
+  // ── Vista virtual: Superglú o material base de profesión ──
+  if (matBaseFilter) {
+    let html, label;
+    if (matBaseFilter === 'superglu') {
+      html  = SUFIJOS_NIVEL_MASC.map((_, tier) => buildCardSuperglu(tier)).join('');
+      label = `<strong>${SUFIJOS_NIVEL_MASC.length}</strong> Superglú`;
+    } else {
+      html  = buildCardsMatProf(matBaseFilter);
+      label = `Materiales básicos · <strong>${matBaseFilter}</strong>`;
+    }
+    container.innerHTML = html;
+    empty.style.display = 'none';
+    resultsText.innerHTML = label;
+    return;
+  }
 
   const { crafteos, grupos } = getDisplayUnits();
 
@@ -977,6 +1151,76 @@ function updateSidebar() {
 // CATÁLOGO DE MATERIALES (panel sidebar)
 // ─────────────────────────────────────────────
 let catalogOpen = false;
+// ─────────────────────────────────────────────
+// MATERIALES BÁSICOS
+// ─────────────────────────────────────────────
+let matbaseOpen   = false;
+let matBaseFilter = null; // null | 'superglu' | profName
+
+function toggleMatBase() {
+  matbaseOpen = !matbaseOpen;
+  document.getElementById('matbase-body').style.display = matbaseOpen ? '' : 'none';
+  document.getElementById('matbase-toggle-icon').textContent = matbaseOpen ? '▾' : '▸';
+  if (matbaseOpen) renderMatBase();
+}
+
+function setMatBase(key) {
+  matBaseFilter = (matBaseFilter === key) ? null : key;
+  renderMatBase();
+  render();
+}
+
+function renderMatBase() {
+  const list = document.getElementById('matbase-list');
+  if (!list || !matbaseOpen) return;
+
+  // Botón Superglú
+  const sgActive = matBaseFilter === 'superglu' ? ' matbase-btn-active' : '';
+  let html = `<button class="matbase-btn${sgActive}" onclick="setMatBase('superglu')">🔧 Superglú</button>`;
+
+  // Un botón por profesión con material base
+  for (const [prof, data] of Object.entries(PROF_MAT_BASE)) {
+    const emoji  = PROF_EMOJI[prof] || '📦';
+    const active = matBaseFilter === prof ? ' matbase-btn-active' : '';
+    const pEsc   = prof.replace(/'/g, "\\'");
+    const label  = data.extras ? `${data.nombre} / ${data.extras.map(e => e.nombre).join(' / ')}` : data.nombre;
+    html += `<button class="matbase-btn${active}" onclick="setMatBase('${pEsc}')" title="${label}">${emoji} ${prof}</button>`;
+  }
+  list.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+// SUPERGLÚ
+// ─────────────────────────────────────────────
+let supergluOpen = false;
+function toggleSuperglu() {
+  supergluOpen = !supergluOpen;
+  document.getElementById('superglu-body').style.display = supergluOpen ? '' : 'none';
+  document.getElementById('superglu-toggle-icon').textContent = supergluOpen ? '▾' : '▸';
+  if (supergluOpen) renderSuperglu();
+}
+
+function renderSuperglu() {
+  const list = document.getElementById('superglu-list');
+  if (!list || !supergluOpen) return;
+  // Un Superglú por tier (0-15); nivel = tier*10+1 da el sufijo correcto
+  const rows = SUFIJOS_NIVEL_MASC.map((_, tier) => {
+    const nivelItem = tier * 10 + 1;
+    const nombre    = getSupergluNombre(nivelItem);
+    const precio    = getCatalogPrice(nombre);
+    const stale     = isMatStale(nombre);
+    const esc       = nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    return `<div class="catalog-row${stale ? ' mat-row-stale' : ''}">
+      <span class="catalog-nombre" title="${nombre}">${nombre}${stale ? ' <span class="stale-icon" title="Desactualizado (>6h)">⏱</span>' : ''}</span>
+      <input class="mat-price-inline catalog-price-input" type="number" value="${precio || ''}"
+        placeholder="—" min="0"
+        onkeydown="if(event.key==='Enter'){updateCatalogPrice('${esc}',this.value);this.blur();renderSuperglu();}"
+        onchange="updateCatalogPrice('${esc}',this.value);renderSuperglu();">
+    </div>`;
+  }).join('');
+  list.innerHTML = rows;
+}
+
 function toggleCatalog() {
   catalogOpen = !catalogOpen;
   document.getElementById('catalog-body').style.display = catalogOpen ? '' : 'none';
@@ -1005,7 +1249,7 @@ function renderCatalog(filterText) {
   }).join('');
 }
 
-function setCategoria(cat) { categoriaFilter = cat; activeProfesiones.clear(); render(); }
+function setCategoria(cat) { categoriaFilter = cat; matBaseFilter = null; activeProfesiones.clear(); renderMatBase(); render(); }
 function toggleProfesion(p) { activeProfesiones.has(p) ? activeProfesiones.delete(p) : activeProfesiones.add(p); render(); }
 function toggleRareza(r)    { activeRarezas.has(r) ? activeRarezas.delete(r) : activeRarezas.add(r); render(); }
 function toggleTipo(t)      { activeTipos.has(t) ? activeTipos.delete(t) : activeTipos.add(t); render(); }
@@ -1274,16 +1518,16 @@ function updateMatSuggestions() {
 
   if (cat !== 'crafteo' || !nivel || !prof) { sugEl.style.display = 'none'; return; }
 
-  const matBase = getMatBaseNombre(prof, nivel);
-  const matSecs = getMatSecNombres(nivel);
-  const tier    = getSufijoTier(nivel);
-  const sufijo  = getSufijo(nivel);
+  const matBases = getMatBaseNombresAll(prof, nivel);
+  const matSecs  = getMatSecNombres(nivel);
+  const tier     = getSufijoTier(nivel);
+  const sufijo   = getSufijo(nivel);
   const nivelPrimario   = tier * 10;
   const nivelSecundario = tier * 10 + 5;
 
   let html = `<span class="sug-tier-label">Tier ${tier} · sufijo <strong>${sufijo}</strong> · primario lvl ${nivelPrimario} / secundario lvl ${nivelSecundario}</span>`;
 
-  if (matBase) {
+  for (const { nombre: matBase } of matBases) {
     const esc       = matBase.replace(/'/g, "\\'");
     const baseCraft = items.find(i => i.categoria === 'crafteo' && normName(i.nombre) === normName(matBase));
     const baseId    = baseCraft ? baseCraft.id.replace(/'/g,"\\'") : '';
@@ -1340,7 +1584,9 @@ function _updateTipoSelect(prof) {
   if (!hintEl) return;
   const matBase = PROF_MAT_BASE[prof];
   if (matBase) {
-    hintEl.innerHTML = `<span class="mat-base-icon">📦</span> Material base: <strong>${matBase.nombre}</strong> <span class="mat-base-ej">(${matBase.ejemplo})</span>`;
+    const extras   = (matBase.extras || []).map(e => `<strong>${e.nombre}</strong> <span class="mat-base-ej">(${e.ejemplo})</span>`).join(' · ');
+    const extrasHtml = extras ? ` &nbsp;+&nbsp; ${extras}` : '';
+    hintEl.innerHTML = `<span class="mat-base-icon">📦</span> Material base: <strong>${matBase.nombre}</strong> <span class="mat-base-ej">(${matBase.ejemplo})</span>${extrasHtml}`;
     hintEl.style.display = '';
   } else {
     hintEl.style.display = 'none';
@@ -1408,7 +1654,9 @@ function addMaterialRow(nombre = '', cantidad = '', profesionMat = '', itemId = 
         oninput="updateMatTotalPreview(${c})">
       ${refItem ? '' : `<input type="number" class="form-input mf-precio" placeholder="Precio/u"
         value="${precioCat || ''}" min="0" style="width:88px" title="Precio unitario (actualiza catálogo compartido)"
-        oninput="onMatPrecioInput(this, ${c})">`}
+        oninput="onMatPrecioInput(this,${c})"
+        onkeydown="if(event.key==='Enter'){_flushMatPrecio(this,${c});this.blur();}"
+        onblur="_flushMatPrecio(this,${c})">`}
       <span class="mat-price-preview" id="mp-prev-${c}">
         ${refItem ? _matPrevHtml(refItem, precioCat) : _matTotalHtml(precioCat, qty)}
       </span>
@@ -1443,16 +1691,29 @@ function updateMatTotalPreview(c) {
   updateShoppingList();
 }
 
+const _matPrecioTimers = {};
 function onMatPrecioInput(input, c) {
   const row    = document.getElementById(`mat-row-${c}`);
   if (!row) return;
   const nombre   = row.querySelector('.mf-nombre')?.value.trim();
   const cantidad = parseInt(row.querySelector('.mf-cantidad')?.value, 10) || 1;
   const precio   = parseInt(input.value, 10) || 0;
-  const prev     = document.getElementById(`mp-prev-${c}`);
+
+  // Preview y lista de compra: inmediatos
+  const prev = document.getElementById(`mp-prev-${c}`);
   if (prev) prev.innerHTML = _matTotalHtml(precio, cantidad);
-  if (nombre) updateCatalogPrice(nombre, precio);
   updateShoppingList();
+
+  // Catálogo (→ historial): espera 4 s sin escribir o Enter/blur para confirmar
+  if (!nombre) return;
+  clearTimeout(_matPrecioTimers[c]);
+  _matPrecioTimers[c] = setTimeout(() => { if (nombre) updateCatalogPrice(nombre, precio); }, 4000);
+}
+function _flushMatPrecio(input, c) {
+  clearTimeout(_matPrecioTimers[c]);
+  const nombre = document.getElementById(`mat-row-${c}`)?.querySelector('.mf-nombre')?.value.trim();
+  const precio = parseInt(input.value, 10) || 0;
+  if (nombre) updateCatalogPrice(nombre, precio);
 }
 
 function onMatTipoChange(select, c) {
@@ -1781,11 +2042,12 @@ function _stubCategoria(m) {
       return { categoria: 'crafteo', profesion: prof };
     }
   }
-  // ¿Coincide con un material base de crafteo (Mango, Fibra…)?
+  // ¿Coincide con un material base de crafteo (Mango, Fibra, Orbe…)?
   for (const [prof, data] of Object.entries(PROF_MAT_BASE)) {
-    const b = normName(data.nombre);
-    if (n === b || n.startsWith(b + ' ')) {
-      return { categoria: 'crafteo', profesion: prof };
+    const nombres = [data.nombre, ...(data.extras || []).map(e => e.nombre)];
+    for (const nb of nombres) {
+      const b = normName(nb);
+      if (n === b || n.startsWith(b + ' ')) return { categoria: 'crafteo', profesion: prof };
     }
   }
   // ¿Es recurso recolectado bruto?
