@@ -674,11 +674,9 @@ function buildCard(item) {
         // Comparativa compra vs crafteo
         // Cuando el modo activo es 'compra', el precio de subasta es editable inline
         const compraBadge = (isActive) => {
-          const cls = isActive ? 'mat-opt-active' : 'mat-opt-dim';
-          if (isActive) {
-            return `<span class="mat-opt ${cls}" title="Precio subasta · editable">🛒 <input class="mat-opt-input" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onchange="updateCatalogPrice('${esc}',this.value)"></span>`;
-          }
-          return `<span class="mat-opt ${cls}" title="Precio de compra">🛒 ${info.precioCompra > 0 ? fmtK(info.precioCompra) : '—'}</span>`;
+          const cls   = isActive ? 'mat-opt-active' : 'mat-opt-dim';
+          const title = isActive ? 'Precio subasta · editable' : 'Precio subasta · editable (tachado = más caro que craftear)';
+          return `<span class="mat-opt ${cls}" title="${title}">🛒 <input class="mat-opt-input${isActive ? '' : ' mat-opt-input-dim'}" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onchange="updateCatalogPrice('${esc}',this.value)"></span>`;
         };
         let comparHtml = '';
         if (info.precioCreacion > 0 && info.precioCompra > 0) {
@@ -696,8 +694,9 @@ function buildCard(item) {
 
         return `<div class="mat-row mat-row-linked">
           <span class="mat-nombre">
-            ${m.nombre}
+            <span class="mat-nombre-text" onclick="openModal('${refItem.id.replace(/'/g,"\\'")}')" title="Clic para editar">${m.nombre}</span>
             ${rLabel ? `<span class="loot-rareza-badge ${rClass}" style="font-size:0.6rem;padding:0 4px">${rLabel}</span>` : ''}
+            <button class="copy-name-btn" onclick="navigator.clipboard.writeText('${esc}')" title="Copiar nombre">⎘</button>
           </span>
           <span class="mat-qty">×${qty}</span>
           <div class="mat-opt-wrap">${comparHtml}</div>
@@ -710,7 +709,10 @@ function buildCard(item) {
       const stale     = isMatStale(m.nombre);
 
       return `<div class="mat-row${stale ? ' mat-row-stale' : ''}">
-        <span class="mat-nombre">${m.nombre}${stale ? ' <span class="stale-icon" title="Precio posiblemente desactualizado (>5h)">⏱</span>' : ''}</span>
+        <span class="mat-nombre">
+          <span class="mat-nombre-text">${m.nombre}${stale ? ' <span class="stale-icon" title="Precio posiblemente desactualizado (>5h)">⏱</span>' : ''}</span>
+          <button class="copy-name-btn" onclick="navigator.clipboard.writeText('${esc}')" title="Copiar nombre">⎘</button>
+        </span>
         <span class="mat-qty">×${m.cantidad}</span>
         <div class="mat-precio-wrap">
           <input class="mat-price-inline" type="number" value="${precioCat || ''}"
@@ -837,7 +839,10 @@ function buildCard(item) {
     <div class="card-head">
       <div class="card-emoji">${emoji}</div>
       <div style="flex:1;min-width:0">
-        <div class="card-name">${item.nombre}</div>
+        <div class="card-name">
+          <span class="card-name-text" onclick="openModal('${eid}')" title="Clic para editar">${item.nombre}</span>
+          <button class="copy-name-btn" onclick="navigator.clipboard.writeText('${item.nombre.replace(/'/g,"\\'")}')" title="Copiar nombre">⎘</button>
+        </div>
         <div class="archi-meta">
           <span class="prof-badge" style="color:${profColor}">${item.profesion}</span>
           ${badges}

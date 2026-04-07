@@ -196,7 +196,30 @@
     color: var(--white);
     line-height: 1.3;
     flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    flex-wrap: wrap;
   }
+  .card-name-text {
+    cursor: pointer;
+    transition: color .15s;
+  }
+  .card-name-text:hover { color: var(--gold2); }
+  .copy-name-btn {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0 2px;
+    opacity: 0;
+    transition: opacity .15s, color .15s;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .card:hover .copy-name-btn { opacity: 1; }
+  .copy-name-btn:hover { color: var(--teal); }
   .card-badge {
     font-family: 'Cinzel', serif;
     font-size: 0.6rem;
