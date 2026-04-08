@@ -305,7 +305,8 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   transition: color .2s;
   opacity: 0;
 }
-.ph-row:hover .ph-del-btn { opacity: 1; }
+.ph-row:hover .ph-del-btn,
+.catalog-row:hover .ph-del-btn { opacity: 1; }
 .ph-del-btn:hover { color: var(--red); }
 .ph-empty { font-size: 0.78rem; color: var(--muted); font-style: italic; padding: 4px 0; }
 
@@ -629,6 +630,7 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   max-height: 280px;
   overflow-y: auto;
   margin-top: 4px;
+  padding-right: 8px;
 }
 .catalog-row {
   display: flex;

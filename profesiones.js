@@ -383,9 +383,15 @@ function rarezaClass(r) {
 
 // ─────────────────────────────────────────────
 // AGRUPACIÓN DE RECOLECCIÓN
-// ─────────────────────────────────────────────
-// Clave de grupo: grupo_recoleccion (o nombre) + profesion
+// Profesiones con un único recurso por tier (común + raro del mismo nodo)
+// Peletero excluido: tiene múltiples esencias distintas por nivel, sin versión rara
+const PROFS_TIER_GROUPING = new Set(['Herbolario', 'Minero', 'Campesino', 'Leñador', 'Pescador']);
+
+// Clave de grupo: tier+profesion para profesiones con un recurso único por tier
+// Resto: grupo_recoleccion || nombre + profesion
 function grupoKey(item) {
+  if (PROFS_TIER_GROUPING.has(item.profesion) && item.nivel_item != null)
+    return `tier${getSufijoTier(item.nivel_item)}||${item.profesion}`;
   return `${item.grupo_recoleccion || item.nombre}||${item.profesion}`;
 }
 
@@ -414,6 +420,7 @@ function getDisplayUnits() {
     g.variantes[v] = item;
     // prefer the normal variant's meta for the group
     if (v === 'normal') {
+      g.grupoNombre    = item.grupo_recoleccion || item.nombre;
       g.lugar          = item.lugar || g.lugar;
       g.nivel_item     = item.nivel_item || g.nivel_item;
     }
@@ -451,10 +458,11 @@ function matchesItem(item) {
 function matchesGrupo(g) {
   const q = searchText.toLowerCase();
   if (q) {
-    const inNombre = g.grupoNombre.toLowerCase().includes(q);
-    const inProf   = g.profesion.toLowerCase().includes(q);
-    const inLugar  = g.lugar && g.lugar.toLowerCase().includes(q);
-    if (!inNombre && !inProf && !inLugar) return false;
+    const inNombre    = g.grupoNombre.toLowerCase().includes(q);
+    const inVariantes = Object.values(g.variantes).some(v => v && v.nombre.toLowerCase().includes(q));
+    const inProf      = g.profesion.toLowerCase().includes(q);
+    const inLugar     = g.lugar && g.lugar.toLowerCase().includes(q);
+    if (!inNombre && !inVariantes && !inProf && !inLugar) return false;
   }
   if (categoriaFilter !== 'todo' && categoriaFilter !== 'recoleccion') return false;
   if (activeProfesiones.size > 0 && !activeProfesiones.has(g.profesion)) return false;
@@ -1245,8 +1253,18 @@ function renderCatalog(filterText) {
       ${icon}<span class="catalog-nombre" title="${nombre}">${nombre}</span>
       <input class="mat-price-inline catalog-price-input" type="number" value="${precio || ''}"
         placeholder="—" min="0" onchange="updateCatalogPrice('${esc}', this.value)">
+      <button class="ph-del-btn" title="Eliminar del catálogo" onclick="deleteCatalogEntry('${esc}')">🗑</button>
     </div>`;
   }).join('');
+}
+
+async function deleteCatalogEntry(nombre) {
+  const key = normName(nombre);
+  delete catalog[key];
+  delete catalogNames[key];
+  renderCatalog();
+  updateMatDatalist();
+  fetch(`${API_MAT}?nombre=${encodeURIComponent(nombre)}`, { method: 'DELETE' }).catch(() => {});
 }
 
 function setCategoria(cat) { categoriaFilter = cat; matBaseFilter = null; activeProfesiones.clear(); renderMatBase(); render(); }
@@ -1413,10 +1431,12 @@ function _buildRecVarForms(grupoNombre, profesion, nivelBase, lugarBase) {
   const varBtnsEl = document.getElementById('rec-var-btns');
   if (!varBtnsEl) return;
 
+  // Usar grupoKey para agrupar por tier cuando hay nivel (igual que getDisplayUnits)
+  const refKey = nivelBase != null
+    ? `tier${getSufijoTier(nivelBase)}||${profesion}`
+    : `${grupoNombre}||${profesion}`;
   const grupoItems = items.filter(i =>
-    i.categoria === 'recoleccion' &&
-    (i.grupo_recoleccion || i.nombre) === grupoNombre &&
-    i.profesion === profesion
+    i.categoria === 'recoleccion' && grupoKey(i) === refKey
   );
   const hasNormal  = grupoItems.some(i => !i.rareza_mat || i.rareza_mat === 'normal');
   const hasRaro    = grupoItems.some(i => i.rareza_mat === 'raro');
@@ -1432,14 +1452,13 @@ function _buildRecVarForms(grupoNombre, profesion, nivelBase, lugarBase) {
 
   const gEsc  = grupoNombre.replace(/"/g, '&quot;').replace(/'/g, "\\'");
   const pEsc  = profesion.replace(/'/g, "\\'");
-  const sufijos = { normal: '', raro: ' (Raro)', semilla: ' (Semilla)' };
 
   const formsHtml = faltantes.map(d => {
-    const nombreMostrado = grupoNombre + sufijos[d.key];
     return `<div class="rec-var-mini-form">
       <div class="rec-var-mini-header ${d.cls}">${d.label}</div>
-      <div class="rec-var-mini-nombre">${nombreMostrado}</div>
       <div class="rec-var-mini-row">
+        <input type="text" class="form-input" id="rv-nombre-${d.key}" placeholder="Nombre del recurso"
+          style="flex:2">
         <input type="number" class="form-input" id="rv-nivel-${d.key}" placeholder="Nivel"
           value="${nivelBase || ''}" min="1" max="160" style="width:70px">
         <input type="text" class="form-input" id="rv-lugar-${d.key}" placeholder="Lugar (opcional)"
@@ -1456,13 +1475,14 @@ function _buildRecVarForms(grupoNombre, profesion, nivelBase, lugarBase) {
 
 // Guarda una variante nueva de un grupo de recolección desde el mini-formulario inline
 async function guardarVarianteInline(grupoNombre, profesion, rareza) {
-  const nivelInput = document.getElementById(`rv-nivel-${rareza}`);
-  const lugarInput = document.getElementById(`rv-lugar-${rareza}`);
-  const nivel      = parseInt(nivelInput?.value, 10) || null;
-  const lugar      = lugarInput?.value.trim() || null;
+  const nombreInput = document.getElementById(`rv-nombre-${rareza}`);
+  const nivelInput  = document.getElementById(`rv-nivel-${rareza}`);
+  const lugarInput  = document.getElementById(`rv-lugar-${rareza}`);
+  const nombre      = nombreInput?.value.trim();
+  const nivel       = parseInt(nivelInput?.value, 10) || null;
+  const lugar       = lugarInput?.value.trim() || null;
 
-  const sufijos = { normal: '', raro: ' (Raro)', semilla: ' (Semilla)' };
-  const nombre  = grupoNombre + sufijos[rareza];
+  if (!nombre) { nombreInput?.focus(); return; }
 
   // Evitar duplicados
   if (items.find(i => i.categoria === 'recoleccion' && normName(i.nombre) === normName(nombre) && i.profesion === profesion)) return;
@@ -1647,8 +1667,6 @@ function addMaterialRow(nombre = '', cantidad = '', profesionMat = '', itemId = 
       <input type="text" class="form-input mf-nombre" placeholder="Nombre del material"
         value="${nombre.replace(/"/g, '&quot;')}" style="flex:2;min-width:0"
         list="mat-names-dl" oninput="onMatNombreInput(this, ${c})">
-      <button type="button" class="mat-copy-btn" title="Copiar nombre"
-        onclick="copyMatName(${c})">📋</button>
       <input type="number" class="form-input mf-cantidad" placeholder="×"
         value="${cantidad || ''}" min="1" style="width:52px" title="Cantidad"
         oninput="updateMatTotalPreview(${c})">
@@ -1779,23 +1797,26 @@ function setMatRareza(c, rareza) {
   const infoEl = document.getElementById(`mr-info-${c}`);
   if (!infoEl) return;
   if (rareza === 'raro') {
-    const profSel = document.getElementById(`mp-prof-${c}`);
-    const prof    = profSel?.value;
-    const base    = nombreInput.value.trim();
-    const commonItem = items.find(i =>
-      i.categoria === 'recoleccion' &&
-      i.profesion === prof &&
-      (i.rareza_mat === 'normal' || !i.rareza_mat) &&
-      (normName(i.nombre) === normName(base) || normName(i.grupo_recoleccion || '') === normName(base))
-    );
+    const profSel  = document.getElementById(`mp-prof-${c}`);
+    const prof     = profSel?.value;
+    const nivelRec = parseInt(document.getElementById(`mr-nivel-${c}`)?.value, 10) || null;
+    // Buscar común por tier si la profesión usa tier-grouping y hay nivel
+    const commonItem = (PROFS_TIER_GROUPING.has(prof) && nivelRec != null)
+      ? items.find(i =>
+          i.categoria === 'recoleccion' &&
+          i.profesion === prof &&
+          (i.rareza_mat === 'normal' || !i.rareza_mat) &&
+          i.nivel_item != null &&
+          getSufijoTier(i.nivel_item) === getSufijoTier(nivelRec)
+        )
+      : null;
     if (commonItem) {
       const pc = getPrecioActual(commonItem) || getCatalogPrice(commonItem.nombre) || 0;
       infoEl.innerHTML = `↳ Común: <strong>${commonItem.nombre}</strong>${pc > 0 ? ` · <span class="mr-precio">${fmtK(pc)}</span>` : ''}`;
     } else {
-      const precioComun = getCatalogPrice(base);
-      infoEl.innerHTML = precioComun > 0
-        ? `↳ Común: <em>${base}</em> · <span class="mr-precio">${fmtK(precioComun)}</span>`
-        : `↳ Común: <em>${base}</em> <span style="color:var(--muted)">(sin datos)</span>`;
+      infoEl.innerHTML = nivelRec
+        ? `↳ <span style="color:var(--muted)">Sin común en tier ${getSufijoTier(nivelRec)} — se creará nuevo</span>`
+        : `↳ <span style="color:var(--muted)">Pon el nivel para detectar el común</span>`;
     }
   } else {
     infoEl.textContent = '';
@@ -1869,6 +1890,7 @@ function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem) {
     <span class="mat-link-suggestions" id="mp-links-${c}">${crafteoLinks}</span>
     <span class="mat-prof-hint">${hintText}</span>
     <div class="mat-rareza-row" id="mr-row-${c}" style="display:${isRecProf ? 'flex' : 'none'}">
+      <input type="number" class="form-input mf-nivel-rec" id="mr-nivel-${c}" placeholder="Nivel" min="1" max="200" style="width:68px" title="Nivel del recurso (obligatorio)" oninput="setMatRareza(${c}, document.getElementById('mr-row-${c}')?.querySelector('.mat-rr-raro.active') ? 'raro' : 'comun')">
       <button type="button" class="mat-rr-btn${!isRaro ? ' active' : ''}" onclick="setMatRareza(${c},'comun')">Común</button>
       <button type="button" class="mat-rr-btn mat-rr-raro${isRaro ? ' active' : ''}" onclick="setMatRareza(${c},'raro')">★ Raro</button>
       <span class="mat-rr-info" id="mr-info-${c}"></span>
@@ -1914,6 +1936,7 @@ async function createStubAndLink(c, rareza = null) {
   const esRecoleccion = matProf && matProf !== '__superglu__' && PROFESIONES_RECOLECCION.includes(matProf);
 
   let categoria, profesion, rareza_mat, grupo_recoleccion;
+  let nivel_item_stub = null, lugar_stub = null;
   if (esRecoleccion) {
     // Leer si el toggle Común / ★ Raro está en "raro"
     const rarezaRow  = document.getElementById(`mr-row-${c}`);
@@ -1921,8 +1944,27 @@ async function createStubAndLink(c, rareza = null) {
     rareza_mat        = toggleRaro ? 'raro' : 'normal';
     categoria         = 'recoleccion';
     profesion         = matProf;
-    // grupo_recoleccion = nombre base (sin sufijo de rareza en el nombre)
-    grupo_recoleccion = nombre;
+
+    // Nivel obligatorio para recolección
+    const nivelInput = document.getElementById(`mr-nivel-${c}`);
+    nivel_item_stub  = parseInt(nivelInput?.value, 10) || null;
+    if (!nivel_item_stub) { nivelInput?.focus(); return; }
+
+    // Para profesiones con tier-grouping: buscar hermano en el mismo tier para heredar lugar
+    // y usar el nombre del COMÚN como grupo_recoleccion (fuente de verdad del grupo)
+    let commonItem = null;
+    if (PROFS_TIER_GROUPING.has(matProf)) {
+      commonItem = items.find(i =>
+        i.categoria === 'recoleccion' &&
+        i.profesion === matProf &&
+        (i.rareza_mat === 'normal' || !i.rareza_mat) &&
+        i.nivel_item != null &&
+        getSufijoTier(i.nivel_item) === getSufijoTier(nivel_item_stub)
+      );
+      if (commonItem) lugar_stub = commonItem.lugar || null;
+    }
+    // grupo_recoleccion = nombre del común si existe, sino nombre del propio item
+    grupo_recoleccion = commonItem ? commonItem.nombre : nombre;
   } else {
     // Material secundario (tabla, acero, gema…) o sin profesión
     categoria         = 'material';
@@ -1939,8 +1981,8 @@ async function createStubAndLink(c, rareza = null) {
     categoria,
     rareza_mat,
     grupo_recoleccion,
-    lugar:             null,
-    nivel_item:        null,
+    lugar:             lugar_stub,
+    nivel_item:        nivel_item_stub,
     nivel_profesion:   null,
     tipo:              null,
     rareza:            rareza || null,
@@ -2010,14 +2052,16 @@ function getMaterialesFromForm() {
   return Array.from(document.getElementById('mat-container').querySelectorAll('.loot-form-row'))
     .map(row => {
       const c         = row.id.replace('mat-row-', '');
-      const rarezaRow = document.getElementById(`mr-row-${c}`);
-      const isRaro    = !!(rarezaRow?.querySelector('.mat-rr-raro.active'));
+      const rarezaRow  = document.getElementById(`mr-row-${c}`);
+      const isRaro     = !!(rarezaRow?.querySelector('.mat-rr-raro.active'));
+      const nivelRecEl = document.getElementById(`mr-nivel-${c}`);
       return {
         nombre:     row.querySelector('.mf-nombre').value.trim(),
         cantidad:   Math.max(1, parseInt(row.querySelector('.mf-cantidad').value, 10) || 1),
         profesion:  row.querySelector('.mf-profesion')?.value || null,
         item_id:    row.querySelector('.mf-item-id')?.value   || null,
         rareza_mat: isRaro ? 'raro' : null,
+        nivel_rec:  parseInt(nivelRecEl?.value, 10) || null,
       };
     })
     .filter(m => m.nombre)
@@ -2142,14 +2186,31 @@ async function saveItem(e) {
       const sc = _stubCategoria(m);
       let newItem;
       if (sc.categoria === 'recoleccion') {
-        const rareza_mat = m.rareza_mat || 'normal';
+        const rareza_mat  = m.rareza_mat || 'normal';
+        const nivel_item  = m.nivel_rec || null;
+        // Buscar el común del mismo tier para heredar grupo_recoleccion y lugar
+        let grupo_recoleccion_stub = m.nombre;
+        let lugar_stub = null;
+        if (PROFS_TIER_GROUPING.has(sc.profesion) && nivel_item != null) {
+          const commonItem = items.find(i =>
+            i.categoria === 'recoleccion' &&
+            i.profesion === sc.profesion &&
+            (i.rareza_mat === 'normal' || !i.rareza_mat) &&
+            i.nivel_item != null &&
+            getSufijoTier(i.nivel_item) === getSufijoTier(nivel_item)
+          );
+          if (commonItem) {
+            grupo_recoleccion_stub = commonItem.nombre;
+            lugar_stub = commonItem.lugar || null;
+          }
+        }
         newItem = {
           id: Date.now().toString(36) + Math.random().toString(36).slice(2) + created.length,
-          nombre: m.nombre, rareza_mat, grupo_recoleccion: m.nombre,
+          nombre: m.nombre, rareza_mat, grupo_recoleccion: grupo_recoleccion_stub,
           profesion: sc.profesion, categoria: 'recoleccion',
-          nivel_item: null, nivel_profesion: null, tipo: null, rareza: null,
+          nivel_item, nivel_profesion: null, tipo: null, rareza: null,
           materiales: [], comprados: 0, en_venta: 0, vendidos: 0,
-          historial_precios: historial, lugar: null,
+          historial_precios: historial, lugar: lugar_stub,
         };
       } else {
         // 'crafteo' (Tabla, Acero, Mango…) o 'material' genérico
