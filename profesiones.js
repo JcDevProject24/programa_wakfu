@@ -611,6 +611,7 @@ function buildVarianteHtml(item, label, colorClass) {
 
   return `<div class="rec-variante">
     <div class="rec-var-label ${colorClass}">${label}</div>
+    <div class="rec-var-nombre" style="font-size:0.78rem;color:var(--text2);font-style:italic;margin-bottom:2px">${item.nombre}</div>
     <div class="rec-var-precio">${precio ? `<strong>${fmtK(precio)}</strong>` : '<span class="muted">Sin precio</span>'}</div>
     <div class="rec-var-stock">
       <span title="Farmeados">🌿 ${item.comprados||0}</span>
@@ -1418,7 +1419,7 @@ function openModal(id) {
         document.getElementById('f-rareza').value      = item.rareza || '';
         setTimeout(updateMatSuggestions, 0);
         setTimeout(updateVersionPrevBtn, 0);
-        (item.materiales || []).forEach(m => addMaterialRow(m.nombre, m.cantidad, m.profesion || '', m.item_id || ''));
+        (item.materiales || []).forEach(m => addMaterialRow(m.nombre, m.cantidad, m.profesion || '', m.item_id || '', m.nivel_rec || null, m.rareza_mat || null));
       }
     }
   }
@@ -1637,7 +1638,7 @@ function onCategoriaChange() {
 }
 
 // ── Fila de material en el formulario ──
-function addMaterialRow(nombre = '', cantidad = '', profesionMat = '', itemId = '') {
+function addMaterialRow(nombre = '', cantidad = '', profesionMat = '', itemId = '', nivelRec = null, rarezaMat = null) {
   matCount++;
   const c       = matCount;
   const refItem = itemId ? items.find(i => i.id === itemId) : null;
@@ -1683,7 +1684,7 @@ function addMaterialRow(nombre = '', cantidad = '', profesionMat = '', itemId = 
         onclick="document.getElementById('mat-row-${c}').remove(); updateShoppingList()">✕</button>
     </div>
     <div class="mat-prof-row" id="mp-extra-${c}">
-      ${_matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem)}
+      ${_matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem, nivelRec, rarezaMat)}
     </div>`;
 
   document.getElementById('mat-container').appendChild(row);
@@ -1857,7 +1858,7 @@ function _matRarezaBtns(c, existingMatches) {
     }).join('');
 }
 
-function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem) {
+function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem, nivelRec = null, rarezaMat = null) {
   if (itemId && refItem) {
     const rClass = rarezaClass(refItem.rareza);
     return `<span class="mat-linked-info">
@@ -1879,7 +1880,7 @@ function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem) {
     : (profesionMat ? '✓ Se vincula con recolección' : '');
 
   const isRecProf = profesionMat && profesionMat !== '__superglu__';
-  const isRaro    = false; // el toggle es informativo, no modifica el nombre
+  const isRaro    = rarezaMat === 'raro';
 
   return `<select class="mf-profesion mat-prof-select" id="mp-prof-${c}"
       title="Tipo de material" onchange="onMatTipoChange(this, ${c})">
@@ -1890,7 +1891,7 @@ function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem) {
     <span class="mat-link-suggestions" id="mp-links-${c}">${crafteoLinks}</span>
     <span class="mat-prof-hint">${hintText}</span>
     <div class="mat-rareza-row" id="mr-row-${c}" style="display:${isRecProf ? 'flex' : 'none'}">
-      <input type="number" class="form-input mf-nivel-rec" id="mr-nivel-${c}" placeholder="Nivel" min="1" max="200" style="width:68px" title="Nivel del recurso (obligatorio)" oninput="setMatRareza(${c}, document.getElementById('mr-row-${c}')?.querySelector('.mat-rr-raro.active') ? 'raro' : 'comun')">
+      <input type="number" class="form-input mf-nivel-rec" id="mr-nivel-${c}" placeholder="Nivel" min="1" max="200" style="width:68px" title="Nivel del recurso (obligatorio)" value="${nivelRec || ''}" oninput="setMatRareza(${c}, document.getElementById('mr-row-${c}')?.querySelector('.mat-rr-raro.active') ? 'raro' : 'comun')">
       <button type="button" class="mat-rr-btn${!isRaro ? ' active' : ''}" onclick="setMatRareza(${c},'comun')">Común</button>
       <button type="button" class="mat-rr-btn mat-rr-raro${isRaro ? ' active' : ''}" onclick="setMatRareza(${c},'raro')">★ Raro</button>
       <span class="mat-rr-info" id="mr-info-${c}"></span>
@@ -1994,6 +1995,21 @@ async function createStubAndLink(c, rareza = null) {
   };
   items.push(stub);
   await pushItem(stub);
+
+  // Migración: hermanos de la misma profesión sin nivel_item → asignar mismo nivel
+  if (PROFS_TIER_GROUPING.has(profesion) && nivel_item_stub != null) {
+    const siblingsToFix = items.filter(i =>
+      i.id !== stub.id &&
+      i.categoria === 'recoleccion' &&
+      i.profesion === profesion &&
+      i.nivel_item == null
+    );
+    await Promise.all(siblingsToFix.map(s => {
+      s.nivel_item = nivel_item_stub;
+      return pushItem(s);
+    }));
+  }
+
   render();
   linkMaterial(c, stub.id);
 }
@@ -2071,6 +2087,7 @@ function getMaterialesFromForm() {
       ...(m.profesion  ? { profesion:  m.profesion  } : {}),
       ...(m.item_id    ? { item_id:    m.item_id    } : {}),
       ...(m.rareza_mat ? { rareza_mat: m.rareza_mat } : {}),
+      ...(m.nivel_rec  ? { nivel_rec:  m.nivel_rec  } : {}),
     }));
 }
 
@@ -2227,6 +2244,20 @@ async function saveItem(e) {
       created.push(newItem);
       catalogNames[normName(m.nombre)] = m.nombre;
       setMatFecha(m.nombre); // marcar como recién actualizado
+
+      // Migración: si hay hermanos de la misma profesión sin nivel_item, asignarles el mismo nivel
+      // para que grupoKey coincida y se agrupen en la misma card
+      if (PROFS_TIER_GROUPING.has(sc.profesion) && nivel_item != null) {
+        items.filter(i =>
+          i.id !== newItem.id &&
+          i.categoria === 'recoleccion' &&
+          i.profesion === sc.profesion &&
+          i.nivel_item == null
+        ).forEach(s => {
+          s.nivel_item = nivel_item;
+          created.push(s);
+        });
+      }
     }
     if (created.length) await Promise.all(created.map(i => pushItem(i)));
 

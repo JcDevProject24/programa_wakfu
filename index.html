@@ -105,6 +105,103 @@
     transition: color .2s, border-color .2s;
   }
   .export-btn:hover { color: var(--gold); border-color: var(--gold); }
+
+  .clear-btn {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: color .2s, border-color .2s;
+    z-index: 2;
+  }
+  .clear-btn:hover { color: var(--red); border-color: var(--red); }
+
+  /* Modal confirmación */
+  #clear-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  #clear-modal.open { display: flex; }
+  .clear-modal-box {
+    background: var(--bg2);
+    border: 2px solid var(--red);
+    border-radius: 14px;
+    padding: 36px 40px;
+    max-width: 440px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(224,82,82,0.35);
+  }
+  .clear-modal-icon { font-size: 2.8rem; margin-bottom: 16px; }
+  .clear-modal-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .clear-modal-msg {
+    font-size: 0.92rem;
+    color: var(--text2);
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .clear-modal-warning {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    color: var(--red);
+    background: rgba(224,82,82,0.1);
+    border: 1px solid rgba(224,82,82,0.3);
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin-bottom: 28px;
+  }
+  .clear-modal-btns { display: flex; gap: 12px; justify-content: center; }
+  .clear-modal-cancel {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text2);
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: border-color .2s, color .2s;
+  }
+  .clear-modal-cancel:hover { border-color: var(--text2); color: var(--white); }
+  .clear-modal-confirm {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--red);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 10px 24px;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  .clear-modal-confirm:hover { opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -133,6 +230,7 @@
       <div class="hub-card-title">ARCHIMONSTRUOS</div>
       <div class="hub-card-desc">Tracker de respawn. Registra kills, consulta cuándo reaparecen y sigue el valor de su loot en la subasta.</div>
       <div class="hub-card-stat" id="stat-archis">Cargando…</div>
+      <button class="clear-btn" onclick="event.preventDefault();openClearModal('archimonstruos')">🗑 Limpiar datos</button>
     </a>
 
     <a class="hub-card card-prof" href="profesiones.html">
@@ -140,6 +238,7 @@
       <div class="hub-card-title">PROFESIONES</div>
       <div class="hub-card-desc">Crafteo y recolección. Calcula profit, gestiona materiales, historial de precios y stock en subasta.</div>
       <div class="hub-card-stat" id="stat-prof">Cargando…</div>
+      <button class="clear-btn" onclick="event.preventDefault();openClearModal('profesiones')">🗑 Limpiar datos</button>
     </a>
 
   </div>
@@ -147,6 +246,69 @@
     <a class="export-btn" href="export.php" download>⬇ Exportar base de datos</a>
   </div>
 </div>
+
+<!-- Modal limpiar BD -->
+<div id="clear-modal">
+  <div class="clear-modal-box">
+    <div class="clear-modal-icon">⚠️</div>
+    <div class="clear-modal-title" id="clear-modal-title"></div>
+    <div class="clear-modal-msg" id="clear-modal-msg"></div>
+    <div class="clear-modal-warning">ESTA ACCIÓN NO SE PUEDE DESHACER</div>
+    <div class="clear-modal-btns">
+      <button class="clear-modal-cancel" onclick="closeClearModal()">Cancelar</button>
+      <button class="clear-modal-confirm" id="clear-modal-confirm-btn">Sí, borrar todo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CLEAR_LABELS = {
+    profesiones:    { title: 'Limpiar sección Profesiones', msg: 'Se borrarán todos los items de crafteo, materiales de recolección y el catálogo de precios.<br><br>Las secciones de Archimonstruos y Mascotas no se verán afectadas.' },
+    archimonstruos: { title: 'Limpiar sección Archimonstruos', msg: 'Se borrarán todos los archimonstruos registrados, sus timers y su historial de loot.<br><br>Las secciones de Profesiones y Mascotas no se verán afectadas.' },
+  };
+  let _clearSeccion = null;
+
+  function openClearModal(seccion) {
+    _clearSeccion = seccion;
+    const lbl = CLEAR_LABELS[seccion];
+    document.getElementById('clear-modal-title').textContent = lbl.title;
+    document.getElementById('clear-modal-msg').innerHTML = lbl.msg;
+    document.getElementById('clear-modal').classList.add('open');
+  }
+  function closeClearModal() {
+    document.getElementById('clear-modal').classList.remove('open');
+    _clearSeccion = null;
+  }
+  document.getElementById('clear-modal-confirm-btn').addEventListener('click', async () => {
+    if (!_clearSeccion) return;
+    const btn = document.getElementById('clear-modal-confirm-btn');
+    btn.textContent = 'Borrando…';
+    btn.disabled = true;
+    try {
+      const res = await fetch('clear.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seccion: _clearSeccion }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        closeClearModal();
+        location.reload();
+      } else {
+        alert('Error: ' + (data.error || 'Desconocido'));
+      }
+    } catch(e) {
+      alert('Error de red al limpiar la base de datos.');
+    } finally {
+      btn.textContent = 'Sí, borrar todo';
+      btn.disabled = false;
+    }
+  });
+  // Cerrar modal al hacer clic fuera
+  document.getElementById('clear-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('clear-modal')) closeClearModal();
+  });
+</script>
 
 <script>
   // Stats mascotas (datos estáticos de mascotas.js)
