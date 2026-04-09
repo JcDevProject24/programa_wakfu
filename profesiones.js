@@ -125,6 +125,41 @@ const PROF_EMOJI = {
 };
 
 // ─────────────────────────────────────────────
+// HISTORIAL DE STOCK DE MATERIALES (localStorage)
+// ─────────────────────────────────────────────
+const LS_STOCK_HIST = 'wf_stock_hist';
+
+function _addStockHist(nombre, cantidad) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_STOCK_HIST) || '{}');
+    const key = normName(nombre);
+    if (!all[key]) all[key] = [];
+    all[key].push({ c: cantidad, t: Date.now() });
+    if (all[key].length > 60) all[key] = all[key].slice(-60);
+    localStorage.setItem(LS_STOCK_HIST, JSON.stringify(all));
+  } catch {}
+}
+
+function _getStockAvg(nombre) {
+  try {
+    const hist = (JSON.parse(localStorage.getItem(LS_STOCK_HIST) || '{}'))[normName(nombre)] || [];
+    if (hist.length < 5) return null; // sin suficiente historial, no alertar
+    return hist.reduce((s, e) => s + e.c, 0) / hist.length;
+  } catch { return null; }
+}
+
+function isStockLow(item) {
+  if (item.categoria !== 'material' && item.categoria !== 'recoleccion') return false;
+  const avg = _getStockAvg(item.nombre);
+  if (avg === null || avg < 2) return false;
+  const k = normName(item.nombre);
+  const usedInRecipe = items.some(i =>
+    i.categoria === 'crafteo' && (i.materiales || []).some(m => normName(m.nombre) === k)
+  );
+  return usedInRecipe && (item.comprados || 0) < avg * 0.4;
+}
+
+// ─────────────────────────────────────────────
 // PRECIOS — FRESCURA (6 h de cooldown, solo si precio ≥ 100)
 // ─────────────────────────────────────────────
 const STALE_MS        = 6 * 60 * 60 * 1000; // 6 horas
@@ -176,6 +211,7 @@ let nivelMax        = null;
 let sortBy          = 'profit';
 let sortSecondary   = 'vendidos';
 let matCount        = 0;
+let reponerMode     = false;
 
 // ─────────────────────────────────────────────
 // CATÁLOGO DE MATERIALES (precios compartidos)
@@ -187,7 +223,9 @@ function getCatalogPrice(nombre) {
 }
 
 // Actualiza catálogo en memoria + persiste en BD + sincroniza historial de items material/recolección + re-renderiza
-async function updateCatalogPrice(nombre, precio) {
+// rareza: si se indica, solo sincroniza crafteos con esa rareza (evita contaminar el historial de venta
+//         de un item con el precio de compra del mismo nombre pero distinta rareza)
+async function updateCatalogPrice(nombre, precio, rareza = null) {
   const key = normName(nombre);
   const val = Math.max(0, parseInt(precio, 10) || 0);
   if (catalog[key] === val) return;
@@ -195,17 +233,27 @@ async function updateCatalogPrice(nombre, precio) {
   catalogNames[key] = nombre.trim();
   setMatFecha(nombre);
 
-  // Sincronizar historial_precios de items material, recolección y crafteo con ese nombre
-  // Los crafteo también pueden registrar precios de compra en el mercado
+  // Sincronizar historial_precios:
+  // - material/recoleccion: siempre
+  // - crafteo sin rareza (materiales intermedios): siempre
+  // - crafteo con rareza: solo si el rareza pasado coincide exactamente
   const now = Date.now();
-  const toSync = items.filter(i =>
-    (i.categoria === 'material' || i.categoria === 'recoleccion' || i.categoria === 'crafteo') &&
-    normName(i.nombre) === key
-  );
+  const toSync = items.filter(i => {
+    if (normName(i.nombre) !== key) return false;
+    if (i.categoria === 'material' || i.categoria === 'recoleccion') return true;
+    if (i.categoria === 'crafteo') {
+      if (!i.rareza) return true;
+      return rareza !== null && i.rareza === rareza;
+    }
+    return false;
+  });
   toSync.forEach(i => {
     if (!i.historial_precios) i.historial_precios = [];
     i.historial_precios.push({ precio: val, fecha: now, vendido: false });
   });
+
+  // Actualizar historial del catálogo en localStorage (para cards virtuales sin item real)
+  addCatHist(nombre.trim(), val);
 
   try {
     const ps = [
@@ -501,8 +549,115 @@ async function updateStock(id, field, delta) {
   const item = items.find(i => i.id === id);
   if (!item) return;
   item[field] = Math.max(0, (item[field] || 0) + delta);
+  // Cascada: vendidos+ descuenta en_venta; en_venta+ descuenta comprados
+  if (field === 'vendidos' && delta > 0)
+    item.en_venta = Math.max(0, (item.en_venta || 0) - 1);
+  else if (field === 'en_venta' && delta > 0)
+    item.comprados = Math.max(0, (item.comprados || 0) - 1);
+  // Historial de stock para materiales y recolección
+  if (field === 'comprados' && (item.categoria === 'material' || item.categoria === 'recoleccion'))
+    _addStockHist(item.nombre, item.comprados);
   render();
   await pushItem(item);
+}
+
+// ─────────────────────────────────────────────
+// MODO REPONER
+// ─────────────────────────────────────────────
+
+// Items crafteo sin nada en venta Y con profit ≥ 50% y > 8.000 netos
+function calcReponerItems() {
+  return items.filter(i => {
+    if (i.categoria !== 'crafteo') return false;
+    if ((i.en_venta || 0) > 0) return false;
+    const p = calcProfit(i);
+    if (!p || p.profitPct === null) return false;
+    return p.profitPct >= 50 && p.profit > 8000;
+  });
+}
+
+function toggleReponerMode() {
+  reponerMode = !reponerMode;
+  document.getElementById('toggle-reponer')?.classList.toggle('on', reponerMode);
+  render();
+}
+
+// Suma 1 crafteado a cada item de la lista de reponer
+async function craftearTodosReponer() {
+  const reponer = calcReponerItems();
+  if (!reponer.length) return;
+  for (const item of reponer) item.comprados = (item.comprados || 0) + 1;
+  render();
+  await Promise.all(reponer.map(i => pushItem(i)));
+}
+
+// Mueve 1 de comprados → en_venta en todos los que tienen stock sin listar
+async function publicarReponer() {
+  const toPub = items.filter(i =>
+    i.categoria === 'crafteo' && (i.comprados || 0) > 0 && (i.en_venta || 0) === 0
+  );
+  if (!toPub.length) return;
+  for (const item of toPub) {
+    item.en_venta  = (item.en_venta  || 0) + 1;
+    item.comprados = Math.max(0, (item.comprados || 0) - 1);
+  }
+  render();
+  await Promise.all(toPub.map(i => pushItem(i)));
+}
+
+function _buildReponerPanelHtml(reponerItems) {
+  if (!reponerItems.length) {
+    return `<div class="reponer-empty">Sin items a reponer con profit ≥ 50% y &gt; 8.000 netos sin stock en venta.</div>`;
+  }
+
+  // Agregar materiales de todos los items (1× cada uno)
+  const mats = new Map();
+  for (const item of reponerItems) {
+    for (const m of (item.materiales || [])) {
+      const k = normName(m.nombre);
+      const { precio } = getMatInfo(m);
+      if (!mats.has(k)) mats.set(k, { nombre: m.nombre, qty: 0, precio: 0 });
+      const entry = mats.get(k);
+      entry.qty += (m.cantidad || 1);
+      if (precio > 0) entry.precio = precio;
+    }
+  }
+  const matList   = [...mats.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const totalCost = matList.reduce((s, m) => s + m.precio * m.qty, 0);
+
+  // Items crafteados sin publicar (para mostrar botón publicar)
+  const pendingPub = items.filter(i =>
+    i.categoria === 'crafteo' && (i.comprados || 0) > 0 && (i.en_venta || 0) === 0
+  );
+
+  const matRows = matList.map(m => {
+    const matItem  = items.find(i => normName(i.nombre) === normName(m.nombre));
+    const stockAct = matItem ? (matItem.comprados || 0) : 0;
+    const falta    = Math.max(0, m.qty - stockAct);
+    const stockHtml = falta > 0
+      ? `<span class="rsl-stock rsl-low">📦 ${stockAct} · <span style="color:var(--red)">faltan ${falta}</span></span>`
+      : `<span class="rsl-stock rsl-ok">📦 ${stockAct} ✓</span>`;
+    return `<div class="rsl-row">
+      <span class="rsl-nombre">${m.nombre}</span>
+      <span class="rsl-qty">×${m.qty}</span>
+      ${stockHtml}
+      ${m.precio > 0 ? `<span class="rsl-coste">${fmtK(m.precio * m.qty)}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<div class="reponer-panel-inner">
+    <div class="reponer-panel-head">
+      <span>↺ <strong>${reponerItems.length}</strong> items a reponer · coste estimado: <strong class="reponer-coste">${totalCost > 0 ? fmtK(totalCost) : '—'}</strong></span>
+      <div class="reponer-btns">
+        <button class="reponer-btn" onclick="craftearTodosReponer()" title="Suma 1 a Crafteados en cada item de la lista">🔨 Craftear todos</button>
+        ${pendingPub.length ? `<button class="reponer-btn reponer-btn-pub" onclick="publicarReponer()" title="Mueve 1 de Crafteados a En Venta en los ${pendingPub.length} items pendientes">🏷 Publicar (${pendingPub.length})</button>` : ''}
+      </div>
+    </div>
+    <div class="rsl-list">
+      ${matRows}
+      ${totalCost > 0 ? `<div class="rsl-total">Total materiales: <strong>${fmtK(totalCost)}</strong></div>` : ''}
+    </div>
+  </div>`;
 }
 
 // ─────────────────────────────────────────────
@@ -724,9 +879,10 @@ function buildCard(item) {
         // Comparativa compra vs crafteo
         // Cuando el modo activo es 'compra', el precio de subasta es editable inline
         const compraBadge = (isActive) => {
-          const cls   = isActive ? 'mat-opt-active' : 'mat-opt-dim';
-          const title = isActive ? 'Precio subasta · editable' : 'Precio subasta · editable (tachado = más caro que craftear)';
-          return `<span class="mat-opt ${cls}" title="${title}">🛒 <input class="mat-opt-input${isActive ? '' : ' mat-opt-input-dim'}" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onkeydown="if(event.key==='Enter'){updateCatalogPrice('${esc}',this.value);this.blur();}" onchange="updateCatalogPrice('${esc}',this.value)"></span>`;
+          const cls      = isActive ? 'mat-opt-active' : 'mat-opt-dim';
+          const title    = isActive ? 'Precio subasta · editable' : 'Precio subasta · editable (tachado = más caro que craftear)';
+          const rarezaArg = refItem.rareza ? `,'${refItem.rareza.replace(/'/g,"\\'")}' ` : '';
+          return `<span class="mat-opt ${cls}" title="${title}">🛒 <input class="mat-opt-input${isActive ? '' : ' mat-opt-input-dim'}" type="number" value="${info.precioCompra || ''}" min="0" placeholder="—" onkeydown="if(event.key==='Enter'){updateCatalogPrice('${esc}',this.value${rarezaArg});this.blur();}" onchange="updateCatalogPrice('${esc}',this.value${rarezaArg})"></span>`;
         };
         let comparHtml = '';
         if (info.precioCreacion > 0 && info.precioCompra > 0) {
@@ -827,9 +983,12 @@ function buildCard(item) {
   const stockLabel = isCrafteo ? '🔨' : (isMaterial ? '📦' : '🌿');
   const pendienteListing = isCrafteo && (item.comprados || 0) > 0 && (item.en_venta || 0) === 0;
   const necesitaReponer  = (item.vendidos || 0) > 0 && (item.en_venta || 0) === 0;
+  const stockBajoHtml = !isCrafteo && isStockLow(item)
+    ? `<span class="stock-bajo-badge" title="Stock bajo respecto al promedio histórico · promedio ≈ ${Math.round(_getStockAvg(item.nombre) || 0)}">⚠ Bajo</span>`
+    : '';
   const pendienteHtml = pendienteListing
     ? `<span class="stock-pendiente" title="Items crafteados sin listar">⚠ Listar</span>`
-    : (necesitaReponer ? `<span class="stock-reponer" title="Se han vendido todos — es momento de reponer">↺ Reponer</span>` : '');
+    : (necesitaReponer ? `<span class="stock-reponer" onclick="toggleReponerMode()" title="Pulsa para ver todos los items a reponer">↺ Reponer</span>` : '');
   const stockHtml = `<div class="stock-section">
     <span class="stock-field">
       <span class="stock-lbl">${stockLabel}</span>
@@ -849,7 +1008,7 @@ function buildCard(item) {
       <strong class="stk-val">${item.vendidos || 0}</strong>
       <button class="stk-btn" onclick="updateStock('${eid}','vendidos',1)">+</button>
     </span>
-    ${pendienteHtml}
+    ${pendienteHtml}${stockBajoHtml}
   </div>`;
 
   // ── Historial de precios ──
@@ -944,8 +1103,7 @@ function addCatPriceFromCard(nombre) {
   const precio  = parseInt(input?.value, 10);
   if (!precio || precio <= 0) { input?.focus(); return; }
   input.value = '';
-  addCatHist(nombre, precio);
-  updateCatalogPrice(nombre, precio);
+  updateCatalogPrice(nombre, precio); // addCatHist ya se llama dentro de updateCatalogPrice
 }
 
 // ─────────────────────────────────────────────
@@ -979,11 +1137,42 @@ function _buildCardMatVirtual(nombre, nivelMin, nivelMax) {
       <button class="ph-del-btn" onclick="${delFn(i)}" title="Eliminar">🗑</button>
     </div>`).join('');
 
+  const openAction = realItem
+    ? `openModal('${realItem.id.replace(/'/g,"\\'")}')`
+    : `openMatBaseModal('${esc}')`;
+
+  const eid = realItem ? realItem.id.replace(/'/g, "\\'") : '';
+  const stockHtml = realItem
+    ? `<div class="stock-section" style="margin-top:6px">
+        <span class="stock-field">
+          <span class="stock-lbl">🔨</span>
+          <button class="stk-btn" onclick="updateStock('${eid}','comprados',-1)">−</button>
+          <strong class="stk-val">${realItem.comprados || 0}</strong>
+          <button class="stk-btn" onclick="updateStock('${eid}','comprados',1)">+</button>
+        </span>
+        <span class="stock-field">
+          <span class="stock-lbl">🏷</span>
+          <button class="stk-btn" onclick="updateStock('${eid}','en_venta',-1)">−</button>
+          <strong class="stk-val">${realItem.en_venta || 0}</strong>
+          <button class="stk-btn" onclick="updateStock('${eid}','en_venta',1)">+</button>
+        </span>
+        <span class="stock-field">
+          <span class="stock-lbl">💸</span>
+          <button class="stk-btn" onclick="updateStock('${eid}','vendidos',-1)">−</button>
+          <strong class="stk-val">${realItem.vendidos || 0}</strong>
+          <button class="stk-btn" onclick="updateStock('${eid}','vendidos',1)">+</button>
+        </span>
+      </div>`
+    : `<div style="font-size:0.75rem;color:var(--muted);font-style:italic;margin-top:4px">Clic en el nombre para crear</div>`;
+
   return `<div class="card card-superglu">
     <div class="card-head">
       <div class="card-emoji">📦</div>
       <div style="flex:1;min-width:0">
-        <div class="card-name"><span class="card-name-text">${nombre}</span></div>
+        <div class="card-name">
+          <button class="card-name-btn" onclick="${openAction}" title="Editar">${nombre}</button>
+          <button class="copy-name-btn" onclick="navigator.clipboard.writeText('${esc}')" title="Copiar nombre">⎘</button>
+        </div>
         <div class="archi-meta">
           <span class="item-nivel">Nv.${nivelMin}–${nivelMax}</span>
         </div>
@@ -1006,6 +1195,7 @@ function _buildCardMatVirtual(nombre, nivelMin, nivelMax) {
       </div>
       ${hist.length ? `<div class="ph-list">${histRows}</div>` : '<div class="ph-empty">Sin entradas — introduce un precio arriba</div>'}
     </details>
+    ${stockHtml}
   </div>`;
 }
 function buildCardSuperglu(tier) {
@@ -1029,6 +1219,16 @@ function buildCardsMatProf(prof) {
   }).join('');
 }
 
+// Cards para materiales secundarios (Hilo, Acero, Tabla…) de una profesión de recolección
+function buildCardsMatSecundario(prof) {
+  const base = MAT_SECUNDARIO_BASE[prof];
+  if (!base) return '';
+  return SUFIJOS_NIVEL.map((sufijo, tier) => {
+    const nombre = `${base} ${sufijo}`;
+    return _buildCardMatVirtual(nombre, tier * 10, tier * 10 + 9);
+  }).join('');
+}
+
 // ─────────────────────────────────────────────
 // RENDER
 // ─────────────────────────────────────────────
@@ -1043,12 +1243,27 @@ function render() {
   renderMatBase();
   renderSuperglu();
 
+  // Reponer panel
+  const reponerPanelEl = document.getElementById('reponer-panel');
+  if (reponerPanelEl) {
+    if (reponerMode && !matBaseFilter) {
+      reponerPanelEl.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+      reponerPanelEl.style.display = '';
+    } else {
+      reponerPanelEl.style.display = 'none';
+    }
+  }
+
   // ── Vista virtual: Superglú o material base de profesión ──
   if (matBaseFilter) {
     let html, label;
     if (matBaseFilter === 'superglu') {
       html  = SUFIJOS_NIVEL_MASC.map((_, tier) => buildCardSuperglu(tier)).join('');
       label = `<strong>${SUFIJOS_NIVEL_MASC.length}</strong> Superglú`;
+    } else if (matBaseFilter.startsWith('sec:')) {
+      const prof = matBaseFilter.slice(4);
+      html  = buildCardsMatSecundario(prof);
+      label = `Secundarios · <strong>${prof}</strong> · ${MAT_SECUNDARIO_BASE[prof] || ''}`;
     } else {
       html  = buildCardsMatProf(matBaseFilter);
       label = `Materiales básicos · <strong>${matBaseFilter}</strong>`;
@@ -1061,10 +1276,12 @@ function render() {
 
   const { crafteos, grupos } = getDisplayUnits();
 
-  // Filtrar crafteos
-  const filteredCrafteos = sortItems(crafteos.filter(matchesItem));
-  // Filtrar grupos recolección
-  const filteredGrupos   = grupos.filter(matchesGrupo)
+  // Filtrar crafteos (en modo reponer, solo items elegibles para reponer)
+  const filteredCrafteos = sortItems(
+    (reponerMode ? calcReponerItems() : crafteos).filter(matchesItem)
+  );
+  // Filtrar grupos recolección (ocultos en modo reponer)
+  const filteredGrupos = reponerMode ? [] : grupos.filter(matchesGrupo)
     .sort((a, b) => a.grupoNombre.localeCompare(b.grupoNombre, 'es'));
 
   const totalCards = filteredCrafteos.length + filteredGrupos.length;
@@ -1079,6 +1296,21 @@ function render() {
   }
 
   empty.style.display = 'none';
+
+  // Botón contextual de materiales básicos en el results-bar cuando hay una sola profesión activa
+  const ctxWrap = document.getElementById('matbase-ctx-wrap');
+  if (ctxWrap) {
+    let ctxHtml = '';
+    if (activeProfesiones.size === 1) {
+      const prof   = [...activeProfesiones][0];
+      const matKey = PROF_MAT_BASE[prof] ? prof : (MAT_SECUNDARIO_BASE[prof] ? `sec:${prof}` : null);
+      if (matKey) {
+        const btnLabel = PROF_MAT_BASE[prof] ? PROF_MAT_BASE[prof].nombre : MAT_SECUNDARIO_BASE[prof];
+        ctxHtml = `<button class="matbase-ctx-btn" onclick="setMatBase('${matKey.replace(/'/g,"\\'")}')" title="Ver materiales básicos de ${prof}">📦 ${btnLabel}</button>`;
+      }
+    }
+    ctxWrap.innerHTML = ctxHtml;
+  }
 
   // Crafteos primero si no estamos en filtro recoleccion
   let html = '';
@@ -1154,6 +1386,23 @@ function updateSidebar() {
       document.getElementById(tid)?.classList.toggle('active', activeTipos.has(t));
     });
   }
+
+  // Sección stock bajo
+  const sbajoSection = document.getElementById('stock-bajo-section');
+  const sbajoList    = document.getElementById('stock-bajo-list');
+  if (sbajoSection && sbajoList) {
+    const lowItems = items.filter(isStockLow);
+    sbajoSection.style.display = lowItems.length ? '' : 'none';
+    if (lowItems.length) {
+      sbajoList.innerHTML = lowItems.map(i => {
+        const avg = Math.round(_getStockAvg(i.nombre) || 0);
+        return `<div class="sbajo-row">
+          <span class="sbajo-nombre" title="${i.nombre}">${i.nombre}</span>
+          <span class="sbajo-val"><span style="color:var(--red)">${i.comprados || 0}</span><span style="color:var(--muted)"> / ~${avg}</span></span>
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1183,17 +1432,27 @@ function renderMatBase() {
   const list = document.getElementById('matbase-list');
   if (!list || !matbaseOpen) return;
 
-  // Botón Superglú
   const sgActive = matBaseFilter === 'superglu' ? ' matbase-btn-active' : '';
   let html = `<button class="matbase-btn${sgActive}" onclick="setMatBase('superglu')">🔧 Superglú</button>`;
 
-  // Un botón por profesión con material base
+  // Materiales primarios (por profesión de crafteo)
+  html += `<div class="matbase-sep-label">Primarios</div>`;
   for (const [prof, data] of Object.entries(PROF_MAT_BASE)) {
     const emoji  = PROF_EMOJI[prof] || '📦';
     const active = matBaseFilter === prof ? ' matbase-btn-active' : '';
     const pEsc   = prof.replace(/'/g, "\\'");
     const label  = data.extras ? `${data.nombre} / ${data.extras.map(e => e.nombre).join(' / ')}` : data.nombre;
     html += `<button class="matbase-btn${active}" onclick="setMatBase('${pEsc}')" title="${label}">${emoji} ${prof}</button>`;
+  }
+
+  // Materiales secundarios (Hilo, Acero, Tabla… — por profesión de recolección)
+  html += `<div class="matbase-sep-label">Secundarios</div>`;
+  for (const [prof, base] of Object.entries(MAT_SECUNDARIO_BASE)) {
+    const emoji  = PROF_EMOJI[prof] || '📦';
+    const key    = `sec:${prof}`;
+    const active = matBaseFilter === key ? ' matbase-btn-active' : '';
+    const pEsc   = prof.replace(/'/g, "\\'");
+    html += `<button class="matbase-btn${active}" onclick="setMatBase('sec:${pEsc}')" title="${base}">${emoji} ${base}</button>`;
   }
   list.innerHTML = html;
 }
@@ -1382,6 +1641,82 @@ async function addVersionComoIngrediente(rareza) {
   addMaterialRow(nombre, 1, '', refItem.id);
 }
 
+// ─────────────────────────────────────────────
+// DETECCIÓN Y SIMPLIFICACIÓN DE MODALES PARA MATERIALES BASE
+// ─────────────────────────────────────────────
+
+// Devuelve { profesion, nivel, isSecundario, isSuperglu } si el nombre es un mat base conocido, o null
+function _inferMatBase(nombre) {
+  const n = normName(nombre);
+  // Superglú: item de compra, sin receta
+  if (n.startsWith('superglú') || n.startsWith('superglu')) {
+    return { profesion: null, nivel: null, isSecundario: false, isSuperglu: true };
+  }
+  // Secundarios (MAT_SECUNDARIO_BASE): Hilo, Acero, Tabla, Harina, Encantártaro, Esencia, Aceite
+  for (const [prof, base] of Object.entries(MAT_SECUNDARIO_BASE)) {
+    const b = normName(base);
+    if (n === b || n.startsWith(b + ' ')) {
+      const sufijoStr = n.length > b.length ? n.slice(b.length + 1) : '';
+      const tier      = sufijoStr ? SUFIJOS_NIVEL.findIndex(s => normName(s) === sufijoStr) : 0;
+      return { profesion: prof, nivel: tier >= 0 ? tier * 10 + 5 : null, isSecundario: true, isSuperglu: false };
+    }
+  }
+  // Primarios (PROF_MAT_BASE): Fibra, Mango, Cuero, Placa, Gema, Escuadrita, Orbe, Especia, Esencia
+  for (const [prof, data] of Object.entries(PROF_MAT_BASE)) {
+    for (const mat of [data, ...(data.extras || [])]) {
+      const b = normName(mat.nombre);
+      if (n === b || n.startsWith(b + ' ')) {
+        const sufijoStr = n.length > b.length ? n.slice(b.length + 1) : '';
+        const sufArr    = mat.masc ? SUFIJOS_NIVEL_MASC : SUFIJOS_NIVEL;
+        const tier      = sufijoStr ? sufArr.findIndex(s => normName(s) === sufijoStr) : 0;
+        return { profesion: prof, nivel: tier >= 0 ? tier * 10 + 1 : null, isSecundario: false, isSuperglu: false };
+      }
+    }
+  }
+  return null;
+}
+
+// Oculta campos irrelevantes cuando el modal se abre para un material base o superglú
+function _applyMatBaseFormSimplify(info) {
+  if (!info) return;
+  // Siempre: ocultar profesion/cat, equip-fields completo, hint, planificador y sugerencias
+  document.getElementById('prof-cat-row')?.style.setProperty('display', 'none');
+  document.getElementById('equip-fields')?.style.setProperty('display', 'none');
+  document.getElementById('mat-base-hint')?.style.setProperty('display', 'none');
+  document.getElementById('plan-craftear-wrap')?.style.setProperty('display', 'none');
+  document.getElementById('mat-suggestions')?.style.setProperty('display', 'none');
+  // Superglú: también ocultar receta (no se craftea) y nombre (ya se muestra en el título)
+  if (info.isSuperglu) {
+    document.getElementById('mat-section-wrap')?.style.setProperty('display', 'none');
+    document.getElementById('nombre-group')?.style.setProperty('display', 'none');
+  }
+}
+
+// Restaura el modal a su estado normal
+function _resetMatBaseFormSimplify() {
+  ['prof-cat-row','equip-fields','mat-section-wrap','plan-craftear-wrap','nombre-group']
+    .forEach(id => document.getElementById(id)?.style.removeProperty('display'));
+}
+
+// Abre el modal simplificado para un material base o superglú (stock / receta / precio)
+function openMatBaseModal(nombre) {
+  const info = _inferMatBase(nombre);
+  openModal(null);
+  document.getElementById('modal-title').textContent = nombre;
+  document.getElementById('f-nombre').value    = nombre;
+  document.getElementById('f-categoria').value = 'crafteo';
+  onCategoriaChange();
+  if (info?.profesion) {
+    document.getElementById('f-profesion').value = info.profesion;
+    _updateTipoSelect(info.profesion);
+  }
+  if (info?.nivel != null) {
+    document.getElementById('f-nivel-item').value = info.nivel;
+    updateMatSuggestions();
+  }
+  _applyMatBaseFormSimplify(info);
+}
+
 function openModal(id) {
   editingId = id || null;
   matCount  = 0;
@@ -1390,6 +1725,7 @@ function openModal(id) {
   document.getElementById('modal-title').textContent = id ? 'Editar Item' : 'Añadir Item';
   const varBtnsEl = document.getElementById('rec-var-btns');
   if (varBtnsEl) { varBtnsEl.style.display = 'none'; varBtnsEl.innerHTML = ''; }
+  _resetMatBaseFormSimplify();
   onCategoriaChange();
 
   if (id) {
@@ -1420,6 +1756,8 @@ function openModal(id) {
         setTimeout(updateMatSuggestions, 0);
         setTimeout(updateVersionPrevBtn, 0);
         (item.materiales || []).forEach(m => addMaterialRow(m.nombre, m.cantidad, m.profesion || '', m.item_id || '', m.nivel_rec || null, m.rareza_mat || null));
+        // Simplificar modal si es un material base (primario o secundario)
+        setTimeout(() => _applyMatBaseFormSimplify(_inferMatBase(item.nombre)), 0);
       }
     }
   }
@@ -1565,14 +1903,13 @@ function updateMatSuggestions() {
   if (matSecs.length) {
     html += `<span class="sug-sep">· Secundarios:</span>`;
     matSecs.forEach(m => {
-      // Si ya existe en el catálogo o en items, destacarlo
       const enCatalog = normName(m.nombre) in catalog;
       const esc       = m.nombre.replace(/'/g, "\\'");
       const profArg   = m.profesion ? m.profesion.replace(/'/g, "\\'") : '';
       html += `<button type="button" class="sug-btn ${enCatalog ? 'sug-btn-known' : ''}"
-        onclick="addMaterialRow('${esc}', 1, '${profArg}', '')"
+        onclick="addMaterialRow('${esc}', 5, '${profArg}', '')"
         title="${m.profesion || 'Material secundario'}${enCatalog ? ' · ya en catálogo' : ''}">
-        + ${m.nombre}${enCatalog ? ' ✓' : ''}
+        + ${m.nombre}×5${enCatalog ? ' ✓' : ''}
       </button>`;
     });
   }

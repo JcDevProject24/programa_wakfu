@@ -100,6 +100,10 @@
       <div class="toggle" id="toggle-rent"></div>
       <span>Solo rentables</span>
     </label>
+    <label class="toggle-row" onclick="toggleReponerMode()" style="cursor:pointer;user-select:none;margin-top:6px">
+      <div class="toggle" id="toggle-reponer"></div>
+      <span>↺ Solo a reponer</span>
+    </label>
   </div>
 
   <div class="filter-section" id="matbase-section">
@@ -109,6 +113,11 @@
     <div id="matbase-body" style="display:none">
       <div id="matbase-list"></div>
     </div>
+  </div>
+
+  <div class="filter-section" id="stock-bajo-section" style="display:none">
+    <div class="filter-title" style="color:var(--red)">⚠ Stock bajo</div>
+    <div id="stock-bajo-list"></div>
   </div>
 
   <div class="filter-section" id="superglu-section">
@@ -135,7 +144,9 @@
 <main>
   <div class="results-bar">
     <span id="results-text">Cargando…</span>
+    <span id="matbase-ctx-wrap"></span>
   </div>
+  <div id="reponer-panel" style="display:none"></div>
   <div class="cards" id="cards"></div>
   <div class="empty" id="empty" style="display:none">Sin items registrados — pulsa <strong>+ Añadir</strong> para empezar.</div>
 </main>
@@ -151,12 +162,12 @@
     </div>
     <form id="item-form" onsubmit="saveItem(event)" novalidate>
 
-      <div class="form-group">
+      <div class="form-group" id="nombre-group">
         <label class="form-label">Nombre del item</label>
         <input type="text" id="f-nombre" class="form-input" placeholder="Ej. Espada del Destino" required>
       </div>
 
-      <div class="form-row">
+      <div class="form-row" id="prof-cat-row">
         <div class="form-group">
           <label class="form-label">Profesión</label>
           <select id="f-profesion" class="form-input form-select" onchange="onProfesionChange()" required>
@@ -224,7 +235,7 @@
             <input type="number" id="f-nivel-prof" class="form-input" placeholder="Ej. 80" min="1" max="230" oninput="updateMatSuggestions()">
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row" id="tipo-rareza-row">
           <div class="form-group">
             <label class="form-label">Tipo (parte del cuerpo)</label>
             <select id="f-tipo" class="form-input form-select">

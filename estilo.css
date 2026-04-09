@@ -210,6 +210,12 @@
     transition: color .15s;
   }
   .card-name-text:hover { color: var(--gold2); }
+  .card-name-btn {
+    background: transparent; border: none; padding: 0; margin: 0;
+    font-family: 'Cinzel', serif; font-size: 1rem; font-weight: 600;
+    color: var(--text1); cursor: pointer; transition: color .15s; text-align: left;
+  }
+  .card-name-btn:hover { color: var(--gold2); }
   .copy-name-btn {
     background: transparent;
     border: none;

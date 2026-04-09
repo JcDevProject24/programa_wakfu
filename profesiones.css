@@ -667,6 +667,15 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   white-space: nowrap;
 }
 .matbase-btn:hover, .matbase-btn-active { background: var(--orange); border-color: var(--orange); color: #0d0f14; font-weight: 600; }
+.matbase-sep-label { width: 100%; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 4px; }
+#matbase-ctx-wrap { margin-left: auto; }
+.matbase-ctx-btn {
+  background: rgba(255,170,0,.08); border: 1px solid rgba(255,170,0,.2);
+  color: var(--gold2); font-family: 'Crimson Pro', serif; font-size: 0.8rem;
+  padding: 3px 9px; border-radius: 5px; cursor: pointer; transition: all .15s;
+  white-space: nowrap;
+}
+.matbase-ctx-btn:hover { background: rgba(255,170,0,.18); border-color: var(--gold2); }
 
 /* ── ITEM META ── */
 .item-nivel {
@@ -975,9 +984,10 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   font-family: 'Cinzel', serif; font-size: 0.65rem; letter-spacing: 0.06em;
   text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
   background: rgba(82,183,136,0.12); border: 1px solid rgba(82,183,136,0.5);
-  color: var(--green); white-space: nowrap; cursor: default;
+  color: var(--green); white-space: nowrap; cursor: pointer;
   animation: pulse-warn 2.5s ease infinite;
 }
+.stock-reponer:hover { background: rgba(82,183,136,0.22); }
 
 /* ── PRECIO OBSOLETO (>5h) ── */
 .mat-row-stale {
@@ -1089,3 +1099,79 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   padding: 0 3px; opacity: 0.5; transition: opacity .15s; flex-shrink: 0;
 }
 .mat-copy-btn:hover { opacity: 1; }
+
+/* ── REPONER PANEL ── */
+#reponer-panel { margin-bottom: 14px; }
+.reponer-panel-inner {
+  background: rgba(82,183,136,0.06);
+  border: 1px solid rgba(82,183,136,0.3);
+  border-radius: 8px; overflow: hidden;
+}
+.reponer-empty {
+  padding: 12px 14px; font-size: 0.82rem;
+  color: var(--muted); font-style: italic; text-align: center;
+}
+.reponer-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(82,183,136,0.22);
+  font-size: 0.84rem; color: var(--text);
+}
+.reponer-panel-head strong { color: var(--green); }
+.reponer-coste { color: var(--orange) !important; font-family: 'Cinzel', serif; }
+.reponer-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.reponer-btn {
+  font-family: 'Cinzel', serif; font-size: 0.64rem; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 5px 12px; border-radius: 5px;
+  border: 1px solid rgba(82,183,136,0.5); background: transparent; color: var(--green);
+  cursor: pointer; transition: all .15s;
+}
+.reponer-btn:hover { background: rgba(82,183,136,0.12); border-color: var(--green); }
+.reponer-btn-pub { border-color: rgba(180,155,80,0.5); color: var(--gold); }
+.reponer-btn-pub:hover { background: rgba(180,155,80,0.1); border-color: var(--gold2); }
+.rsl-list { padding: 4px 0; max-height: 260px; overflow-y: auto; }
+.rsl-row {
+  display: grid;
+  grid-template-columns: 1fr 46px 130px 76px;
+  align-items: center; gap: 0 8px;
+  padding: 4px 14px; font-size: 0.8rem;
+  border-bottom: 1px solid rgba(42,47,66,0.4);
+}
+.rsl-row:last-of-type { border-bottom: none; }
+.rsl-nombre { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rsl-qty    { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: center; }
+.rsl-stock  { font-size: 0.75rem; }
+.rsl-ok     { color: var(--green); }
+.rsl-low    { color: var(--orange); }
+.rsl-coste  { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: right; }
+.rsl-total {
+  padding: 5px 14px; text-align: right;
+  font-size: 0.82rem; color: var(--text2);
+  border-top: 1px solid rgba(82,183,136,0.22);
+}
+.rsl-total strong { color: var(--orange); font-family: 'Cinzel', serif; }
+
+/* ── STOCK BAJO BADGE (card de material/recolección) ── */
+.stock-bajo-badge {
+  font-family: 'Cinzel', serif; font-size: 0.63rem; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 2px 6px; border-radius: 3px;
+  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.4);
+  color: var(--red); white-space: nowrap;
+  animation: pulse-warn 2s ease infinite;
+}
+
+/* ── SIDEBAR: STOCK BAJO ── */
+.sbajo-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 0; font-size: 0.78rem;
+  border-bottom: 1px solid rgba(42,47,66,0.4);
+}
+.sbajo-row:last-child { border-bottom: none; }
+.sbajo-nombre {
+  color: var(--text2); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; flex: 1; font-size: 0.75rem;
+}
+.sbajo-val {
+  flex-shrink: 0; font-family: 'Cinzel', serif; font-size: 0.72rem; margin-left: 6px;
+}
