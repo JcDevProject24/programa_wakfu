@@ -398,7 +398,7 @@ function getMatInfo(m) {
 }
 
 function calcCoste(item) {
-  if (!item.materiales?.length) return 0;
+  if (!item.materiales?.length) return item.coste_base || 0;
   return item.materiales.reduce((s, m) => {
     const { precio } = getMatInfo(m);
     return s + precio * (m.cantidad || 0);
@@ -751,13 +751,21 @@ function _buildReponerPanelHtml(reponerItems) {
     const matItem  = items.find(i => normName(i.nombre) === normName(m.nombre));
     const stockAct = matItem ? (matItem.comprados || 0) : 0;
     const falta    = Math.max(0, m.qty - stockAct);
-    const stockHtml = falta > 0
-      ? `<span class="rsl-stock rsl-low">📦 ${stockAct} · <span style="color:var(--red)">faltan ${falta}</span></span>`
-      : `<span class="rsl-stock rsl-ok">📦 ${stockAct} ✓</span>`;
+    const midEsc   = matItem ? matItem.id.replace(/'/g, "\\'") : '';
+    const stockInput = matItem
+      ? `<input class="rsl-stock-input" type="number" min="0" value="${stockAct}"
+           style="width:${Math.max(1,String(stockAct).length)}ch"
+           oninput="this.style.width=Math.max(1,this.value.length)+'ch'"
+           onchange="setStock('${midEsc}','comprados',this.value)"
+           onkeydown="if(event.key==='Enter')this.blur()">`
+      : `<span class="rsl-stock-input" style="color:var(--muted)">${stockAct}</span>`;
+    const faltaHtml = falta > 0
+      ? `<span class="rsl-falta">faltan ${falta}</span>`
+      : `<span class="rsl-ok">✓</span>`;
     return `<div class="rsl-row">
       <span class="rsl-nombre">${m.nombre}</span>
       <span class="rsl-qty">×${m.qty}</span>
-      ${stockHtml}
+      <span class="rsl-stock ${falta > 0 ? 'rsl-low' : 'rsl-ok'}">📦 ${stockInput} ${faltaHtml}</span>
       ${m.precio > 0 ? `<span class="rsl-coste">${fmtK(m.precio * m.qty)}</span>` : ''}
     </div>`;
   }).join('');
@@ -1891,9 +1899,10 @@ function openModal(id) {
       document.getElementById('f-categoria').value  = item.categoria;
       onCategoriaChange();
       _updateTipoSelect(item.profesion);
-      document.getElementById('f-comprados').value  = item.comprados || 0;
-      document.getElementById('f-en-venta').value   = item.en_venta  || 0;
-      document.getElementById('f-vendidos').value   = item.vendidos  || 0;
+      document.getElementById('f-comprados').value  = item.comprados  || 0;
+      document.getElementById('f-en-venta').value   = item.en_venta   || 0;
+      document.getElementById('f-vendidos').value   = item.vendidos   || 0;
+      document.getElementById('f-coste-base').value = item.coste_base || '';
       if (item.categoria === 'recoleccion') {
         const grupoRec = item.grupo_recoleccion || item.nombre;
         document.getElementById('f-grupo-rec').value      = grupoRec;
@@ -2113,6 +2122,14 @@ function copyMatName(c) {
   navigator.clipboard?.writeText(input.value);
 }
 
+function _updateCosteBaseVisibility() {
+  const wrap = document.getElementById('coste-base-wrap');
+  if (!wrap) return;
+  const cat        = document.getElementById('f-categoria')?.value;
+  const matRows    = document.getElementById('mat-container')?.querySelectorAll('.loot-form-row').length || 0;
+  wrap.style.display = (cat === 'crafteo' && matRows === 0) ? '' : 'none';
+}
+
 function onCategoriaChange() {
   const cat       = document.getElementById('f-categoria').value;
   const isCrafteo = cat === 'crafteo';
@@ -2128,6 +2145,8 @@ function onCategoriaChange() {
   // Etiqueta stock
   const lbl = document.querySelector('#stock-comprados-group .form-label');
   if (lbl) lbl.textContent = isCrafteo ? 'Crafteados' : 'Farmeados';
+
+  _updateCosteBaseVisibility();
 }
 
 // ── Fila de material en el formulario ──
@@ -2174,13 +2193,14 @@ function addMaterialRow(nombre = '', cantidad = '', profesionMat = '', itemId = 
       </span>
       <input type="hidden" class="mf-item-id" value="${itemId}">
       <button type="button" class="action-btn danger"
-        onclick="document.getElementById('mat-row-${c}').remove(); updateShoppingList()">✕</button>
+        onclick="document.getElementById('mat-row-${c}').remove(); _updateCosteBaseVisibility(); updateShoppingList()">✕</button>
     </div>
     <div class="mat-prof-row" id="mp-extra-${c}">
       ${_matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem, nivelRec, rarezaMat)}
     </div>`;
 
   document.getElementById('mat-container').appendChild(row);
+  _updateCosteBaseVisibility();
   updateShoppingList();
 }
 
@@ -2331,6 +2351,38 @@ function _matPrevHtml(refItem, precio) {
 // Para materiales básicos (sin rareza) muestra simplemente el botón de vincular.
 // Solo muestra botones de vincular cuando ya existe un item crafteo/material con ese nombre.
 // Para materiales básicos sin item registrado → no muestra nada (el catálogo gestiona el precio).
+// Buscador para vincular cualquier crafteo existente, independientemente del nombre.
+// Solo se muestra cuando no hay match automático por nombre.
+function _matSearchLinkHtml(c) {
+  const opts = items
+    .filter(i => i.categoria === 'crafteo')
+    .map(i => {
+      const label = i.rareza ? `${i.nombre} [${i.rareza}]` : i.nombre;
+      return `<option value="${label.replace(/"/g, '&quot;')}">`;
+    }).join('');
+  return `<span class="mat-search-link">
+    <input class="mat-search-input" list="msl-dl-${c}" id="msl-${c}"
+      placeholder="🔍 Vincular cualquier item…"
+      oninput="_linkBySearch(${c}, this.value)">
+    <datalist id="msl-dl-${c}">${opts}</datalist>
+  </span>`;
+}
+
+function _linkBySearch(c, val) {
+  if (!val.trim()) return;
+  const rarezaMatch = val.match(/\[(.+?)\]$/);
+  const rareza      = rarezaMatch ? rarezaMatch[1] : null;
+  const nombreBusq  = normName(val.replace(/\s*\[.*?\]$/, '').trim());
+  const found = items.find(i =>
+    i.categoria === 'crafteo' &&
+    normName(i.nombre) === nombreBusq &&
+    (!rareza || i.rareza === rareza)
+  );
+  if (!found) return;
+  document.getElementById(`msl-${c}`).value = '';
+  linkMaterial(c, found.id);
+}
+
 function _matRarezaBtns(c, existingMatches) {
   if (!existingMatches.length) return ''; // material básico: precio vía catálogo, sin stub
 
@@ -2366,7 +2418,9 @@ function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem, nivel
     i.categoria === 'crafteo' && normName(i.nombre) === normName(nombre)
   ) : [];
 
-  const crafteoLinks = nombre ? _matRarezaBtns(c,crafteoMatches) : '';
+  const crafteoLinks   = nombre ? _matRarezaBtns(c, crafteoMatches) : '';
+  // Buscador libre solo cuando no hay match por nombre (caso equipables con nombre distinto)
+  const searchLink = !crafteoLinks ? _matSearchLinkHtml(c) : '';
 
   const hintText = profesionMat === '__superglu__'
     ? `✓ Superglú (escala por nivel)`
@@ -2382,6 +2436,7 @@ function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem, nivel
       ${profOpts}
     </select>
     <span class="mat-link-suggestions" id="mp-links-${c}">${crafteoLinks}</span>
+    ${searchLink}
     <span class="mat-prof-hint">${hintText}</span>
     <div class="mat-rareza-row" id="mr-row-${c}" style="display:${isRecProf ? 'flex' : 'none'}">
       <input type="number" class="form-input mf-nivel-rec" id="mr-nivel-${c}" placeholder="Nivel" min="1" max="200" style="width:68px" title="Nivel del recurso (obligatorio)" value="${nivelRec || ''}" oninput="setMatRareza(${c}, document.getElementById('mr-row-${c}')?.querySelector('.mat-rr-raro.active') ? 'raro' : 'comun')">
@@ -2639,6 +2694,9 @@ async function saveItem(e) {
   const en_venta        = parseInt(document.getElementById('f-en-venta').value, 10)  || 0;
   const vendidos        = parseInt(document.getElementById('f-vendidos').value, 10)  || 0;
   const materiales      = categoria === 'crafteo' ? getMaterialesFromForm() : [];
+  const coste_base      = materiales.length === 0
+    ? (parseInt(document.getElementById('f-coste-base')?.value, 10) || null)
+    : null;
 
   let nombre, rareza_mat, grupo_recoleccion;
   if (categoria === 'recoleccion') {
@@ -2663,14 +2721,14 @@ async function saveItem(e) {
     if (item) Object.assign(item, {
       nombre, rareza_mat, grupo_recoleccion, lugar,
       profesion, categoria, nivel_item, nivel_profesion,
-      tipo, rareza, materiales, comprados, en_venta, vendidos
+      tipo, rareza, materiales, comprados, en_venta, vendidos, coste_base
     });
   } else {
     item = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2),
       nombre, rareza_mat, grupo_recoleccion, lugar,
       profesion, categoria, nivel_item, nivel_profesion,
-      tipo, rareza, materiales, comprados, en_venta, vendidos,
+      tipo, rareza, materiales, comprados, en_venta, vendidos, coste_base,
       historial_precios: []
     };
     items.push(item);
