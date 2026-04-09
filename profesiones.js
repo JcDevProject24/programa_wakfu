@@ -349,6 +349,7 @@ async function loadAll() {
     document.getElementById('empty').style.display = 'block';
     return;
   }
+  await checkCaducados();
   render();
 }
 
@@ -545,20 +546,136 @@ function setSortSecondary(val) { sortSecondary = val; render(); }
 // ─────────────────────────────────────────────
 // STOCK INLINE
 // ─────────────────────────────────────────────
+function _onEnVentaChange(item, oldVal, newVal) {
+  if (newVal > 0 && oldVal === 0) item.fecha_en_venta = Date.now();
+  if (newVal === 0)               delete item.fecha_en_venta;
+}
+
+async function setStock(id, field, value) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  const old = item[field] || 0;
+  const val = Math.max(0, parseInt(value, 10) || 0);
+  item[field] = val;
+  if (field === 'en_venta') _onEnVentaChange(item, old, val);
+  if (field === 'comprados' && (item.categoria === 'material' || item.categoria === 'recoleccion'))
+    _addStockHist(item.nombre, val);
+  render();
+  await pushItem(item);
+}
+
+function _stockField(eid, field, val, lbl) {
+  const w = Math.max(1, String(val).length);
+  return `<span class="stock-field">
+    <span class="stock-lbl">${lbl}</span>
+    <button class="stk-btn" onclick="updateStock('${eid}','${field}',-1)">−</button>
+    <input class="stk-val-input" type="number" min="0" value="${val}" style="width:${w}ch"
+      oninput="this.style.width=Math.max(1,this.value.length)+'ch'"
+      onchange="setStock('${eid}','${field}',this.value);this.style.width=Math.max(1,String(parseInt(this.value)||0).length)+'ch'"
+      onkeydown="if(event.key==='Enter')this.blur()"
+      title="Editable directamente">
+    <button class="stk-btn" onclick="updateStock('${eid}','${field}',1)">+</button>
+  </span>`;
+}
+
 async function updateStock(id, field, delta) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  item[field] = Math.max(0, (item[field] || 0) + delta);
+  const old = item[field] || 0;
+  item[field] = Math.max(0, old + delta);
   // Cascada: vendidos+ descuenta en_venta; en_venta+ descuenta comprados
   if (field === 'vendidos' && delta > 0)
     item.en_venta = Math.max(0, (item.en_venta || 0) - 1);
   else if (field === 'en_venta' && delta > 0)
     item.comprados = Math.max(0, (item.comprados || 0) - 1);
+  if (field === 'en_venta') _onEnVentaChange(item, old, item.en_venta);
   // Historial de stock para materiales y recolección
   if (field === 'comprados' && (item.categoria === 'material' || item.categoria === 'recoleccion'))
     _addStockHist(item.nombre, item.comprados);
   render();
   await pushItem(item);
+}
+
+const SEMANA_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function checkCaducados() {
+  const now     = Date.now();
+  const vencidos = items.filter(i =>
+    i.categoria === 'crafteo' &&
+    (i.en_venta || 0) > 0 &&
+    i.fecha_en_venta &&
+    now - i.fecha_en_venta > SEMANA_MS
+  );
+  if (!vencidos.length) return;
+  for (const item of vencidos) {
+    item.comprados  = (item.comprados || 0) + (item.en_venta || 0);
+    item.caducados  = (item.caducados || 0) + (item.en_venta || 0);
+    item.en_venta   = 0;
+    delete item.fecha_en_venta;
+  }
+  render();
+  await Promise.all(vencidos.map(i => pushItem(i)));
+}
+
+// ─────────────────────────────────────────────
+// OPORTUNIDADES DE COMPRA
+// ─────────────────────────────────────────────
+
+// Devuelve el historial de precios de un material (real o virtual)
+function _getPriceHist(nombre) {
+  const realItem = items.find(i =>
+    normName(i.nombre) === normName(nombre) &&
+    (i.categoria === 'material' || i.categoria === 'recoleccion')
+  );
+  if (realItem?.historial_precios?.length)
+    return realItem.historial_precios.map(e => e.precio).filter(p => p > 0);
+  return getCatHist(nombre).map(e => e.precio).filter(p => p > 0);
+}
+
+function calcOportunidades() {
+  const result = [];
+  for (const [key, nombre] of Object.entries(catalogNames)) {
+    const precioActual = catalog[key] || 0;
+    if (precioActual <= 0) continue;
+
+    const hist = _getPriceHist(nombre);
+    if (hist.length < 3) continue;
+
+    const avg = hist.reduce((s, p) => s + p, 0) / hist.length;
+    if (avg <= 0) continue;
+    const pct = precioActual / avg;
+    if (pct >= 0.75) continue;
+
+    // Solo si se usa en crafteos rentables
+    const recetas = items.filter(i => {
+      if (i.categoria !== 'crafteo') return false;
+      const p = calcProfit(i);
+      if (!p || p.profit <= 0) return false;
+      return (i.materiales || []).some(m => normName(m.nombre) === key);
+    });
+    if (!recetas.length) continue;
+
+    // Cantidad total necesaria por ciclo completo (1× cada receta)
+    const qtyPorCiclo = recetas.reduce((s, i) => {
+      const m = (i.materiales || []).find(m => normName(m.nombre) === key);
+      return s + (m?.cantidad || 0);
+    }, 0);
+
+    // Multiplicador según descuento
+    let mult;
+    if      (pct < 0.10) mult = 40;
+    else if (pct < 0.25) mult = 20;
+    else if (pct < 0.50) mult = 8;
+    else                 mult = 3; // < 0.75
+
+    result.push({
+      nombre, key, precioActual, avg, pct,
+      recetas: recetas.length, qtyPorCiclo,
+      sugerido: Math.max(qtyPorCiclo, qtyPorCiclo * mult),
+      ahorro: Math.round((avg - precioActual) * qtyPorCiclo * mult),
+    });
+  }
+  return result.sort((a, b) => a.pct - b.pct);
 }
 
 // ─────────────────────────────────────────────
@@ -569,7 +686,7 @@ async function updateStock(id, field, delta) {
 function calcReponerItems() {
   return items.filter(i => {
     if (i.categoria !== 'crafteo') return false;
-    if ((i.en_venta || 0) > 0) return false;
+    if ((i.comprados || 0) > 0) return false;
     const p = calcProfit(i);
     if (!p || p.profitPct === null) return false;
     return p.profitPct >= 50 && p.profit > 8000;
@@ -979,6 +1096,39 @@ function buildCard(item) {
       : `<div class="profit-section"><span style="color:var(--muted);font-style:italic;font-size:0.84rem">Sin precio — añade uno en el historial</span></div>`;
   }
 
+  // ── Oportunidad de compra (solo material/recolección) ──
+  let opHtml = '';
+  if (!isCrafteo) {
+    const hist = _getPriceHist(item.nombre);
+    if (hist.length >= 3) {
+      const avg  = hist.reduce((s, p) => s + p, 0) / hist.length;
+      const pc   = getCatalogPrice(item.nombre);
+      const pct  = avg > 0 && pc > 0 ? pc / avg : null;
+      if (pct !== null && pct < 0.75) {
+        const recetas = items.filter(i => {
+          if (i.categoria !== 'crafteo') return false;
+          const p = calcProfit(i);
+          return p && p.profit > 0 && (i.materiales||[]).some(m => normName(m.nombre) === normName(item.nombre));
+        });
+        if (recetas.length) {
+          const pctStr = Math.round(pct * 100);
+          const cls    = pctStr < 25 ? 'op-exc' : (pctStr < 50 ? 'op-great' : 'op-good');
+          const mult   = pct < 0.10 ? 40 : pct < 0.25 ? 20 : pct < 0.50 ? 8 : 3;
+          const qpc    = recetas.reduce((s, i) => {
+            const m = (i.materiales||[]).find(m => normName(m.nombre) === normName(item.nombre));
+            return s + (m?.cantidad || 0);
+          }, 0);
+          const sugerido = Math.max(qpc, qpc * mult);
+          opHtml = `<div class="op-card-banner ${cls}">
+            🛒 Precio bajo: <strong>${pctStr}%</strong> de la media (${fmtK(Math.round(avg))})
+            · sugerido comprar <strong>×${sugerido}</strong>
+            <span style="color:var(--muted);font-size:0.75rem">· usado en ${recetas.length} receta${recetas.length>1?'s':''}</span>
+          </div>`;
+        }
+      }
+    }
+  }
+
   // ── Stock interactivo ──
   const stockLabel = isCrafteo ? '🔨' : (isMaterial ? '📦' : '🌿');
   const pendienteListing = isCrafteo && (item.comprados || 0) > 0 && (item.en_venta || 0) === 0;
@@ -989,25 +1139,19 @@ function buildCard(item) {
   const pendienteHtml = pendienteListing
     ? `<span class="stock-pendiente" title="Items crafteados sin listar">⚠ Listar</span>`
     : (necesitaReponer ? `<span class="stock-reponer" onclick="toggleReponerMode()" title="Pulsa para ver todos los items a reponer">↺ Reponer</span>` : '');
+  const diasEnVenta = item.fecha_en_venta ? Math.floor((Date.now() - item.fecha_en_venta) / 86400000) : null;
+  const enVentaTitle = diasEnVenta !== null ? `title="En venta hace ${diasEnVenta}d · caduca en ${Math.max(0,7-diasEnVenta)}d"` : '';
+  const caducadosHtml = (item.caducados || 0) > 0
+    ? `<span class="stock-field stock-caducados" title="Veces que volvió al almacén por no venderse en 7 días">
+        <span class="stock-lbl">↩</span>
+        <span class="stk-val-input" style="width:${String(item.caducados).length}ch;cursor:default">${item.caducados}</span>
+      </span>`
+    : '';
   const stockHtml = `<div class="stock-section">
-    <span class="stock-field">
-      <span class="stock-lbl">${stockLabel}</span>
-      <button class="stk-btn" onclick="updateStock('${eid}','comprados',-1)">−</button>
-      <strong class="stk-val">${item.comprados || 0}</strong>
-      <button class="stk-btn" onclick="updateStock('${eid}','comprados',1)">+</button>
-    </span>
-    <span class="stock-field">
-      <span class="stock-lbl">🏷</span>
-      <button class="stk-btn" onclick="updateStock('${eid}','en_venta',-1)">−</button>
-      <strong class="stk-val">${item.en_venta || 0}</strong>
-      <button class="stk-btn" onclick="updateStock('${eid}','en_venta',1)">+</button>
-    </span>
-    <span class="stock-field">
-      <span class="stock-lbl">💸</span>
-      <button class="stk-btn" onclick="updateStock('${eid}','vendidos',-1)">−</button>
-      <strong class="stk-val">${item.vendidos || 0}</strong>
-      <button class="stk-btn" onclick="updateStock('${eid}','vendidos',1)">+</button>
-    </span>
+    ${_stockField(eid, 'comprados', item.comprados || 0, stockLabel)}
+    <span ${enVentaTitle}>${_stockField(eid, 'en_venta', item.en_venta || 0, '🏷')}</span>
+    ${_stockField(eid, 'vendidos',  item.vendidos  || 0, '💸')}
+    ${caducadosHtml}
     ${pendienteHtml}${stockBajoHtml}
   </div>`;
 
@@ -1066,6 +1210,7 @@ function buildCard(item) {
     </div>
     ${matHtml}
     ${profitHtml}
+    ${opHtml}
     ${stockHtml}
     ${histHtml}
   </div>`;
@@ -1144,24 +1289,9 @@ function _buildCardMatVirtual(nombre, nivelMin, nivelMax) {
   const eid = realItem ? realItem.id.replace(/'/g, "\\'") : '';
   const stockHtml = realItem
     ? `<div class="stock-section" style="margin-top:6px">
-        <span class="stock-field">
-          <span class="stock-lbl">🔨</span>
-          <button class="stk-btn" onclick="updateStock('${eid}','comprados',-1)">−</button>
-          <strong class="stk-val">${realItem.comprados || 0}</strong>
-          <button class="stk-btn" onclick="updateStock('${eid}','comprados',1)">+</button>
-        </span>
-        <span class="stock-field">
-          <span class="stock-lbl">🏷</span>
-          <button class="stk-btn" onclick="updateStock('${eid}','en_venta',-1)">−</button>
-          <strong class="stk-val">${realItem.en_venta || 0}</strong>
-          <button class="stk-btn" onclick="updateStock('${eid}','en_venta',1)">+</button>
-        </span>
-        <span class="stock-field">
-          <span class="stock-lbl">💸</span>
-          <button class="stk-btn" onclick="updateStock('${eid}','vendidos',-1)">−</button>
-          <strong class="stk-val">${realItem.vendidos || 0}</strong>
-          <button class="stk-btn" onclick="updateStock('${eid}','vendidos',1)">+</button>
-        </span>
+        ${_stockField(eid, 'comprados', realItem.comprados || 0, '🔨')}
+        ${_stockField(eid, 'en_venta',  realItem.en_venta  || 0, '🏷')}
+        ${_stockField(eid, 'vendidos',  realItem.vendidos  || 0, '💸')}
       </div>`
     : `<div style="font-size:0.75rem;color:var(--muted);font-style:italic;margin-top:4px">Clic en el nombre para crear</div>`;
 
@@ -1385,6 +1515,32 @@ function updateSidebar() {
       const tid = 'tbtn-' + t.toLowerCase().replace(/\s+/g,'-').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
       document.getElementById(tid)?.classList.toggle('active', activeTipos.has(t));
     });
+  }
+
+  // Sección oportunidades de compra
+  const opSection = document.getElementById('oportunidades-section');
+  const opList    = document.getElementById('oportunidades-list');
+  if (opSection && opList) {
+    const ops = calcOportunidades();
+    opSection.style.display = ops.length ? '' : 'none';
+    if (ops.length) {
+      opList.innerHTML = ops.map(o => {
+        const pctStr  = Math.round(o.pct * 100);
+        const cls     = pctStr < 25 ? 'op-exc' : (pctStr < 50 ? 'op-great' : 'op-good');
+        const stockAct = items.find(i => normName(i.nombre) === o.key)?.comprados || 0;
+        return `<div class="op-row">
+          <div class="op-nombre-row">
+            <span class="op-nombre">${o.nombre}</span>
+            <span class="op-pct ${cls}">${pctStr}%</span>
+          </div>
+          <div class="op-detail">
+            <span class="op-precio">🏷 ${fmtK(o.precioActual)} <span class="op-avg">· media ${fmtK(Math.round(o.avg))}</span></span>
+            <span class="op-sugerido">🛒 ×${o.sugerido} <span class="op-avg">(${o.recetas} receta${o.recetas>1?'s':''})</span></span>
+            ${stockAct > 0 ? `<span class="op-avg">📦 stock: ${stockAct}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
   }
 
   // Sección stock bajo

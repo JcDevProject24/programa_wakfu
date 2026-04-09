@@ -205,7 +205,17 @@
   padding: 3px 6px;
 }
 .stock-lbl { font-size: 0.82rem; }
-.stk-val   { color: var(--white); font-family: 'Cinzel', serif; font-size: 0.78rem; min-width: 18px; text-align: center; }
+.stk-val-input {
+  color: var(--white); font-family: 'Cinzel', serif; font-size: 0.78rem;
+  font-weight: 700; min-width: 1ch; text-align: center;
+  background: transparent; border: none; box-shadow: none;
+  padding: 0; margin: 0; outline: none; cursor: default;
+  appearance: none; -moz-appearance: textfield;
+  display: inline-block; line-height: 1;
+}
+.stk-val-input::-webkit-outer-spin-button,
+.stk-val-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stk-val-input:focus { outline: none; border-bottom: 1px solid var(--border2); cursor: text; }
 .stk-btn {
   background: transparent;
   border: none;
@@ -1099,6 +1109,44 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   padding: 0 3px; opacity: 0.5; transition: opacity .15s; flex-shrink: 0;
 }
 .mat-copy-btn:hover { opacity: 1; }
+
+/* ── OPORTUNIDADES DE COMPRA ── */
+.op-row {
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(42,47,66,0.5);
+}
+.op-row:last-child { border-bottom: none; }
+.op-nombre-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-bottom: 2px; }
+.op-nombre { font-size: 0.78rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.op-pct {
+  font-family: 'Cinzel', serif; font-size: 0.68rem; font-weight: 700;
+  padding: 1px 5px; border-radius: 3px; flex-shrink: 0;
+}
+.op-good  { background: rgba(82,183,136,0.12); border: 1px solid rgba(82,183,136,0.4);  color: var(--green); }
+.op-great { background: rgba(224,140,58,0.12);  border: 1px solid rgba(224,140,58,0.4);  color: var(--orange); }
+.op-exc   { background: rgba(224,82,82,0.12);   border: 1px solid rgba(224,82,82,0.4);   color: var(--red); animation: pulse-warn 2s ease infinite; }
+.op-detail { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 0.74rem; }
+.op-precio  { color: var(--text2); }
+.op-sugerido { color: var(--gold2); }
+.op-avg { color: var(--muted); font-style: italic; }
+
+/* banner en la card */
+.op-card-banner {
+  font-size: 0.78rem; padding: 5px 10px; margin-bottom: 8px;
+  border-radius: 5px; border-left: 3px solid;
+}
+.op-card-banner.op-good  { background: rgba(82,183,136,0.07);  border-color: var(--green);  color: var(--green); }
+.op-card-banner.op-great { background: rgba(224,140,58,0.08);  border-color: var(--orange); color: var(--orange); }
+.op-card-banner.op-exc   { background: rgba(224,82,82,0.08);   border-color: var(--red);    color: var(--red); }
+.op-card-banner strong { font-family: 'Cinzel', serif; }
+
+/* ── CADUCADOS (vuelto al almacén por no venderse en 7 días) ── */
+.stock-caducados {
+  border-color: rgba(224,82,82,0.35);
+  color: var(--red);
+}
+.stock-caducados .stock-lbl { color: var(--red); }
+.stock-caducados .stk-val-input { color: var(--red); }
 
 /* ── REPONER PANEL ── */
 #reponer-panel { margin-bottom: 14px; }
