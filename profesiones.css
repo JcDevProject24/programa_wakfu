@@ -1189,14 +1189,34 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .reponer-btn:hover { background: rgba(82,183,136,0.12); border-color: var(--green); }
 .reponer-btn-pub { border-color: rgba(180,155,80,0.5); color: var(--gold); }
 .reponer-btn-pub:hover { background: rgba(180,155,80,0.1); border-color: var(--gold2); }
-.rsl-list { padding: 4px 0; max-height: 260px; overflow-y: auto; }
+.rsl-search-wrap { padding: 6px 14px 4px; }
+.rsl-search {
+  width: 100%; font-size: 0.78rem; padding: 4px 8px; border-radius: 4px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text); outline: none; transition: border-color .15s;
+}
+.rsl-search:focus { border-color: var(--green); }
+.rsl-search::placeholder { color: var(--muted); }
+.rsl-list { padding: 4px 0; max-height: 400px; overflow-y: auto; resize: vertical; min-height: 80px; }
 .rsl-row {
   display: grid;
-  grid-template-columns: 1fr 46px 130px 76px;
+  grid-template-columns: minmax(0,1fr) 40px 120px 80px 70px;
   align-items: center; gap: 0 8px;
   padding: 4px 14px; font-size: 0.8rem;
   border-bottom: 1px solid rgba(42,47,66,0.4);
 }
+.rsl-precio-wrap { color: var(--text2); font-size: 0.75rem; display: flex; align-items: center; gap: 2px; white-space: nowrap; }
+.rsl-precio-input {
+  font-family: 'Cinzel', serif; font-size: 0.75rem; font-weight: 700;
+  color: var(--gold2); min-width: 1ch;
+  background: transparent; border: none; border-bottom: 1px solid transparent;
+  padding: 0; outline: none; text-align: right; cursor: default;
+  appearance: none; -moz-appearance: textfield;
+}
+.rsl-precio-input::-webkit-outer-spin-button,
+.rsl-precio-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rsl-precio-input:focus { border-bottom-color: var(--gold2); cursor: text; }
+.rsl-precio-input::placeholder { color: var(--muted); font-weight: 400; }
 .rsl-row:last-of-type { border-bottom: none; }
 .rsl-nombre { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rsl-qty    { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: center; }
@@ -1215,12 +1235,36 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .rsl-stock-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .rsl-stock-input:focus { border-bottom-color: currentColor; cursor: text; }
 .rsl-coste  { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: right; }
+.rsl-crafteos-head {
+  font-family: 'Cinzel', serif; font-size: 0.63rem; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--gold);
+  padding: 7px 14px 4px;
+  border-top: 1px solid rgba(82,183,136,0.22);
+  margin-top: 2px;
+}
+.rsl-crafteos-list { padding: 0 0 6px; }
+.rsl-c-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 14px; font-size: 0.8rem;
+  border-bottom: 1px solid rgba(42,47,66,0.35);
+}
+.rsl-c-row:last-child { border-bottom: none; }
+.rsl-c-emoji  { font-size: 0.88rem; flex-shrink: 0; }
+.rsl-c-nombre { color: var(--text); flex-shrink: 0; font-size: 0.82rem; }
+.rsl-c-qty    { font-family: 'Cinzel', serif; font-size: 0.76rem; color: var(--teal); flex-shrink: 0; }
+.rsl-c-usado  { font-size: 0.7rem; color: var(--muted); font-style: italic; flex-shrink: 0; }
+.rsl-c-spacer { flex: 1; }
+.rsl-c-profit { font-family: 'Cinzel', serif; font-size: 0.76rem; font-weight: 700; flex-shrink: 0; }
+.rsl-c-pct    { font-size: 0.7rem; color: var(--green); padding: 1px 5px; border-radius: 3px; background: rgba(82,183,136,0.1); border: 1px solid rgba(82,183,136,0.25); flex-shrink: 0; }
+
 .rsl-total {
   padding: 5px 14px; text-align: right;
   font-size: 0.82rem; color: var(--text2);
   border-top: 1px solid rgba(82,183,136,0.22);
 }
 .rsl-total strong { color: var(--orange); font-family: 'Cinzel', serif; }
+.rsl-total-profit { border-top: 1px solid rgba(82,183,136,0.22); margin-top: 2px; }
+.rsl-total-profit strong { color: var(--green) !important; }
 
 /* ── STOCK BAJO BADGE (card de material/recolección) ── */
 .stock-bajo-badge {
