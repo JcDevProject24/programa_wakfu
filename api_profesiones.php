@@ -37,6 +37,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 'tipo'               => $r['tipo'],
                 'rareza'             => $r['rareza'],
                 'materiales'         => json_decode($r['materiales']        ?? '[]', true) ?: [],
+                'recetas_alt'        => json_decode($r['recetas_alt']        ?? '[]', true) ?: [],
                 'historial_precios'  => json_decode($r['historial_precios'] ?? '[]', true) ?: [],
                 'comprados'          => (int)$r['comprados'],
                 'en_venta'           => (int)$r['en_venta'],
@@ -55,18 +56,18 @@ switch ($_SERVER['REQUEST_METHOD']) {
             INSERT INTO profesiones_items
                 (id, nombre, nombre_alternativo, profesion, categoria, rareza_mat, grupo_recoleccion, lugar,
                  nivel_item, nivel_profesion, tipo, rareza,
-                 materiales, comprados, en_venta, vendidos, historial_precios)
+                 materiales, recetas_alt, comprados, en_venta, vendidos, historial_precios)
             VALUES
                 (:id, :nombre, :nombre_alt, :profesion, :categoria, :rareza_mat, :grupo_rec, :lugar,
                  :nivel_item, :nivel_profesion, :tipo, :rareza,
-                 :materiales, :comprados, :en_venta, :vendidos, :historial)
+                 :materiales, :recetas_alt, :comprados, :en_venta, :vendidos, :historial)
             ON DUPLICATE KEY UPDATE
                 nombre=VALUES(nombre), nombre_alternativo=VALUES(nombre_alternativo),
                 profesion=VALUES(profesion), categoria=VALUES(categoria),
                 rareza_mat=VALUES(rareza_mat), grupo_recoleccion=VALUES(grupo_recoleccion), lugar=VALUES(lugar),
                 nivel_item=VALUES(nivel_item), nivel_profesion=VALUES(nivel_profesion),
                 tipo=VALUES(tipo), rareza=VALUES(rareza), materiales=VALUES(materiales),
-                comprados=VALUES(comprados), en_venta=VALUES(en_venta),
+                recetas_alt=VALUES(recetas_alt), comprados=VALUES(comprados), en_venta=VALUES(en_venta),
                 vendidos=VALUES(vendidos), historial_precios=VALUES(historial_precios)
         ');
         $stmt->execute([
@@ -83,6 +84,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
             ':tipo'           => $d['tipo']    ?? null,
             ':rareza'         => $d['rareza']  ?? null,
             ':materiales'     => json_encode($d['materiales']       ?? []),
+            ':recetas_alt'    => json_encode($d['recetas_alt']      ?? []),
             ':comprados'      => (int)($d['comprados'] ?? 0),
             ':en_venta'       => (int)($d['en_venta']  ?? 0),
             ':vendidos'       => (int)($d['vendidos']  ?? 0),

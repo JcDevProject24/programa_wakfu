@@ -104,6 +104,10 @@
       <div class="toggle" id="toggle-reponer"></div>
       <span>↺ Solo a reponer</span>
     </label>
+    <label class="toggle-row" onclick="togglePublicarMode()" style="cursor:pointer;user-select:none;margin-top:6px">
+      <div class="toggle" id="toggle-publicar"></div>
+      <span>🏷 Solo a publicar</span>
+    </label>
   </div>
 
   <div class="filter-section" id="matbase-section">
@@ -152,6 +156,7 @@
     <span id="matbase-ctx-wrap"></span>
   </div>
   <div id="reponer-panel" style="display:none"></div>
+  <div id="publicar-panel" style="display:none"></div>
   <div class="cards" id="cards"></div>
   <div class="empty" id="empty" style="display:none">Sin items registrados — pulsa <strong>+ Añadir</strong> para empezar.</div>
 </main>
@@ -278,6 +283,17 @@
         <div class="add-mat-row">
           <button type="button" class="add-mat-btn" onclick="addMaterialRow()">+ Añadir material</button>
           <div id="version-prev-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Recetas alternativas (solo crafteo básicos) -->
+      <div id="recetas-alt-section" style="display:none">
+        <div class="section-label">🔀 Recetas alternativas
+          <span class="section-label-sub">· el sistema usa la más barata automáticamente</span>
+        </div>
+        <div id="recetas-alt-list"></div>
+        <div class="add-mat-row">
+          <button type="button" class="add-mat-btn" onclick="addRecetaAlt()">+ Añadir alternativa</button>
         </div>
       </div>
 

@@ -846,6 +846,29 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   color: var(--gold); text-transform: uppercase; margin: 16px 0 10px;
   padding-bottom: 6px; border-bottom: 1px solid var(--border);
 }
+.section-label-sub {
+  font-family: inherit; font-size: 0.6rem; letter-spacing: 0.04em;
+  color: var(--muted); text-transform: none; font-weight: 400;
+}
+
+/* ── RECETAS ALTERNATIVAS ── */
+.receta-alt-group {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; margin-bottom: 10px;
+}
+.receta-alt-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.receta-alt-label {
+  font-size: 0.72rem; font-weight: 600; color: var(--text2); letter-spacing: 0.05em;
+}
+.receta-alt-remove {
+  background: transparent; border: none; color: var(--muted); cursor: pointer;
+  font-size: 0.8rem; padding: 2px 5px; border-radius: 3px;
+}
+.receta-alt-remove:hover { color: var(--red); }
+.receta-alt-add-btn { margin-top: 8px; }
 .add-mat-btn {
   background: transparent; border: 1px dashed var(--border2); color: var(--text2);
   border-radius: 5px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem;
@@ -1218,7 +1241,12 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .rsl-precio-input:focus { border-bottom-color: var(--gold2); cursor: text; }
 .rsl-precio-input::placeholder { color: var(--muted); font-weight: 400; }
 .rsl-row:last-of-type { border-bottom: none; }
-.rsl-nombre { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rsl-nombre { display: flex; align-items: center; gap: 4px; overflow: hidden; min-width: 0; }
+.rsl-nombre-txt { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.rsl-copy-btn { background: none; border: none; cursor: pointer; font-size: 0.7rem; padding: 0; opacity: 0; transition: opacity 0.15s; line-height: 1; flex-shrink: 0; }
+.rsl-row:hover { background: rgba(255,255,255,0.04); }
+.rsl-row:hover .rsl-copy-btn { opacity: 0.55; }
+.rsl-copy-btn:hover { opacity: 1 !important; }
 .rsl-qty    { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: center; }
 .rsl-stock  { font-size: 0.75rem; display: flex; align-items: center; gap: 4px; }
 .rsl-ok     { color: var(--green); }
@@ -1243,12 +1271,22 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   margin-top: 2px;
 }
 .rsl-crafteos-list { padding: 0 0 6px; }
+.rsl-sub-crafteos-head {
+  font-family: 'Cinzel', serif; font-size: 0.6rem; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 5px 14px 3px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  margin-top: 4px;
+}
 .rsl-c-row {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 14px; font-size: 0.8rem;
   border-bottom: 1px solid rgba(42,47,66,0.35);
 }
 .rsl-c-row:last-child { border-bottom: none; }
+.rsl-c-row:hover { background: rgba(255,255,255,0.04); }
+.rsl-c-price-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.rsl-stale { font-size: 0.7rem; cursor: default; }
 .rsl-c-emoji  { font-size: 0.88rem; flex-shrink: 0; }
 .rsl-c-nombre { color: var(--text); flex-shrink: 0; font-size: 0.82rem; }
 .rsl-c-qty    { font-family: 'Cinzel', serif; font-size: 0.76rem; color: var(--teal); flex-shrink: 0; }
@@ -1263,8 +1301,61 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   border-top: 1px solid rgba(82,183,136,0.22);
 }
 .rsl-total strong { color: var(--orange); font-family: 'Cinzel', serif; }
-.rsl-total-profit { border-top: 1px solid rgba(82,183,136,0.22); margin-top: 2px; }
+.rsl-total-profit { border-top: 1px solid rgba(82,183,136,0.22); margin-top: 2px; display: flex; align-items: center; gap: 10px; }
+.rsl-tax-note { color: var(--muted); font-size: 0.7rem; }
 .rsl-total-profit strong { color: var(--green) !important; }
+
+/* ── PANEL PUBLICAR ── */
+.publicar-panel-inner {
+  background: rgba(180,155,80,0.06);
+  border: 1px solid rgba(180,155,80,0.3);
+  border-radius: 8px; overflow: hidden;
+}
+.publicar-panel-inner .reponer-panel-head { border-bottom-color: rgba(180,155,80,0.22); }
+.publicar-panel-inner .reponer-panel-head strong { color: var(--gold2); }
+.pub-list { padding: 4px 0; max-height: 500px; overflow-y: auto; }
+.pub-comprados { font-family: 'Cinzel', serif; font-size: 0.72rem; color: var(--green); flex-shrink: 0; }
+.pub-dias { font-size: 0.7rem; color: var(--muted); flex-shrink: 0; }
+.pub-dias-caduca { color: var(--orange); font-weight: 700; }
+.rsl-stock-icon-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: inherit; line-height: 1; opacity: 0.7; transition: opacity .15s, transform .1s;
+}
+.rsl-stock-icon-btn:hover { opacity: 1; transform: scale(1.2); }
+.rsl-consume {
+  font-family: 'Cinzel', serif; font-size: 0.72rem; font-weight: 700;
+  color: var(--red); background: rgba(220,60,60,0.12);
+  border: 1px solid rgba(220,60,60,0.3); border-radius: 3px;
+  padding: 0 4px; flex-shrink: 0;
+}
+.craftear-preview-mode .rsl-row { background: rgba(220,60,60,0.04); }
+.craftear-preview-mode .rsl-row:hover { background: rgba(220,60,60,0.08); }
+.rsl-c-row-preview { background: rgba(82,183,136,0.08) !important; }
+.rsl-preview-label {
+  font-size: 0.72rem; color: var(--text2); font-style: italic; flex-shrink: 0;
+}
+.reponer-btn-confirm {
+  border-color: rgba(82,183,136,0.6) !important; color: var(--green) !important;
+  font-weight: 700;
+}
+.reponer-btn-confirm:hover { background: rgba(82,183,136,0.15) !important; }
+.reponer-btn-cancel {
+  border-color: rgba(220,60,60,0.5) !important; color: var(--red) !important;
+}
+.reponer-btn-cancel:hover { background: rgba(220,60,60,0.1) !important; }
+.rsl-ingrediente-sub {
+  display: block; font-size: 0.62rem; color: var(--muted);
+  font-style: italic; line-height: 1.3; padding-top: 1px;
+}
+.rsl-c-craft-btn {
+  background: none; border: 1px solid rgba(82,183,136,0.3); border-radius: 4px;
+  padding: 2px 6px; cursor: pointer; font-size: 0.72rem;
+  color: var(--green); opacity: 0; transition: opacity .15s;
+  flex-shrink: 0;
+}
+.rsl-c-row:hover .rsl-c-craft-btn { opacity: 1; }
+.rsl-c-craft-btn:hover { background: rgba(82,183,136,0.12); border-color: var(--green); }
+.pub-btn { padding: 3px 8px !important; font-size: 0.6rem !important; flex-shrink: 0; }
 
 /* ── STOCK BAJO BADGE (card de material/recolección) ── */
 .stock-bajo-badge {

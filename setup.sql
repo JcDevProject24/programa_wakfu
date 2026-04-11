@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS profesiones_items (
     tipo               VARCHAR(50)   DEFAULT NULL,   -- subtipo equipable
     rareza             VARCHAR(20)   DEFAULT NULL,
     materiales         JSON          DEFAULT NULL,   -- [{nombre, cantidad}]  SIN precio (precio viene del catálogo)
+    recetas_alt        JSON          DEFAULT NULL,   -- [[{nombre,cantidad}], …] recetas alternativas (solo crafteo básicos)
     comprados          INT           NOT NULL DEFAULT 0,
     en_venta           INT           NOT NULL DEFAULT 0,
     vendidos           INT           NOT NULL DEFAULT 0,
@@ -57,3 +58,7 @@ CREATE TABLE IF NOT EXISTS profesiones_items (
 --   ADD COLUMN IF NOT EXISTS rareza_mat VARCHAR(10) DEFAULT NULL,
 --   ADD COLUMN IF NOT EXISTS grupo_recoleccion VARCHAR(100) DEFAULT NULL,
 --   ADD COLUMN IF NOT EXISTS lugar VARCHAR(150) DEFAULT NULL;
+
+-- Añadir columna recetas_alt (si ya tenías la tabla creada):
+ALTER TABLE profesiones_items
+  ADD COLUMN IF NOT EXISTS recetas_alt JSON DEFAULT NULL;
