@@ -392,7 +392,10 @@ function getMatInfo(m) {
     return { precio, modo: 'compra', precioCompra: precio, precioCreacion: null };
   }
   const ref = items.find(i => i.id === m.item_id);
-  if (!ref) return { precio: 0, modo: 'compra', precioCompra: 0, precioCreacion: null };
+  if (!ref) {
+    const precio = getCatalogPrice(m.nombre);
+    return { precio, modo: 'compra', precioCompra: precio, precioCreacion: null };
+  }
 
   // Precio de compra: primero precio de mercado del historial, luego catálogo de materiales
   const precioCompra   = getPrecioActual(ref) || getCatalogPrice(m.nombre);
@@ -1830,6 +1833,7 @@ function render() {
   updateSidebar();
   updateMatDatalist();
   renderCatalog();
+  renderIngredienteSearch();
   renderMatBase();
   renderSuperglu();
 
@@ -2145,6 +2149,72 @@ function renderCatalog(filterText) {
   }).join('');
 }
 
+let ingredienteOpen = false;
+
+function toggleIngrediente() {
+  ingredienteOpen = !ingredienteOpen;
+  document.getElementById('ingrediente-body').style.display = ingredienteOpen ? '' : 'none';
+  document.getElementById('ingrediente-toggle-icon').textContent = ingredienteOpen ? '▾' : '▸';
+  if (ingredienteOpen) renderIngredienteSearch('');
+}
+
+// Devuelve si el ingrediente `q` aparece en la receta de `item` (directa o transitivamente)
+// `directo` sale true solo si aparece como ingrediente directo
+function _ingredienteUsadoEn(q, item, visited = new Set()) {
+  if (visited.has(item.id)) return { usado: false, directo: false };
+  visited.add(item.id);
+  const allMats = [...(item.materiales || []), ...(item.recetas_alt || []).flat()];
+  let directo = false;
+  for (const m of allMats) {
+    if (normName(m.nombre).includes(q)) { directo = true; break; }
+  }
+  if (directo) return { usado: true, directo: true };
+  // Búsqueda transitiva: seguir item_id de sub-items
+  for (const m of allMats) {
+    if (!m.item_id) continue;
+    const sub = items.find(i => i.id === m.item_id);
+    if (sub && _ingredienteUsadoEn(q, sub, visited).usado) return { usado: true, directo: false };
+  }
+  return { usado: false, directo: false };
+}
+
+function renderIngredienteSearch(query) {
+  const list = document.getElementById('ingrediente-list');
+  if (!list || !ingredienteOpen) return;
+  const q = normName(query !== undefined ? query : (document.getElementById('ingrediente-search')?.value || ''));
+  if (!q) {
+    list.innerHTML = '<div class="cat-empty" style="font-style:italic">Escribe un nombre de ingrediente</div>';
+    return;
+  }
+  const crafteos = items
+    .filter(i => i.categoria === 'crafteo')
+    .map(i => ({ item: i, res: _ingredienteUsadoEn(q, i) }))
+    .filter(({ res }) => res.usado);
+
+  if (!crafteos.length) { list.innerHTML = '<div class="cat-empty">Sin resultados</div>'; return; }
+  list.innerHTML = crafteos.map(({ item: i, res }) => {
+    const emoji  = PROF_EMOJI[i.profesion] || '🔨';
+    const nombre = i.nombre.replace(/</g, '&lt;');
+    const idEsc  = i.id.replace(/"/g, '&quot;');
+    const tag    = res.directo
+      ? ''
+      : `<span style="color:var(--muted);font-size:0.7rem;font-style:italic">vía sub-item</span>`;
+    return `<div class="catalog-row" style="cursor:pointer;gap:4px" onclick="scrollToItem('${idEsc}')">
+      <span style="font-size:0.75rem">${emoji}</span>
+      <span class="catalog-nombre" title="${nombre}">${nombre}</span>
+      <span style="margin-left:auto;flex-shrink:0">${tag}</span>
+    </div>`;
+  }).join('');
+}
+
+function scrollToItem(id) {
+  const el = document.querySelector(`#cards [data-id="${id.replace(/"/g, '\\"')}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.classList.add('card-highlight');
+  setTimeout(() => el.classList.remove('card-highlight'), 2000);
+}
+
 async function deleteCatalogEntry(nombre) {
   const key = normName(nombre);
   delete catalog[key];
@@ -2177,7 +2247,22 @@ function setNivelRange() {
 // DELETE
 // ─────────────────────────────────────────────
 async function deleteItem(id) {
-  if (!confirm('¿Eliminar este item?')) return;
+  const _allMats = i => [...(i.materiales || []), ...(i.recetas_alt || []).flat()];
+  const dependientes = items.filter(i => _allMats(i).some(m => m.item_id === id));
+  let msg = '¿Eliminar este item?';
+  if (dependientes.length) {
+    const lista = dependientes.map(i => `· ${i.nombre}`).join('\n');
+    msg = `Este item está vinculado como ingrediente en ${dependientes.length} crafteo${dependientes.length > 1 ? 's' : ''}:\n${lista}\n\n¿Eliminar y desvincular automáticamente?`;
+  }
+  if (!confirm(msg)) return;
+  if (dependientes.length) {
+    const _unlink = mats => mats.map(m => m.item_id === id ? { ...m, item_id: null } : m);
+    for (const dep of dependientes) {
+      dep.materiales  = _unlink(dep.materiales  || []);
+      dep.recetas_alt = (dep.recetas_alt || []).map(r => _unlink(r));
+    }
+    await Promise.all(dependientes.map(i => pushItem(i)));
+  }
   items = items.filter(i => i.id !== id);
   render();
   await removeItemFromDb(id);
@@ -2633,8 +2718,32 @@ function updateMatSuggestions() {
       🔧 ${sgNombre}${sgInCat ? ' ✓' : ''}
     </button>`;
 
+  // Botón de plantilla completa: añade base + secundarios + superglú de una vez
+  html += `<span class="sug-sep">·</span>
+    <button type="button" class="sug-btn sug-btn-plantilla"
+      onclick="addPlantillaBasica('${prof.replace(/'/g,"\\'")}',${ nivel })"
+      title="Añade todos los ingredientes estándar de un crafteo de ${prof} nivel ${nivel}: base + secundarios + superglú">
+      ⚡ Plantilla completa
+    </button>`;
+
   sugEl.innerHTML = html;
   sugEl.style.display = '';
+}
+
+function addPlantillaBasica(prof, nivel) {
+  const matBases = getMatBaseNombresAll(prof, nivel);
+  const matSecs  = getMatSecNombres(nivel);
+  const sgNombre = getSupergluNombre(nivel);
+
+  for (const { nombre: matBase } of matBases) {
+    const baseCraft = items.find(i => i.categoria === 'crafteo' && normName(i.nombre) === normName(matBase));
+    addMaterialRow(matBase, 1, '', baseCraft ? baseCraft.id : '');
+  }
+  matSecs.forEach(m => {
+    const profArg = m.profesion || '';
+    addMaterialRow(m.nombre, 5, profArg, '');
+  });
+  addMaterialRow(sgNombre, 1, '__superglu__', '');
 }
 
 function _updateTipoSelect(prof) {
@@ -3385,13 +3494,14 @@ async function saveItem(e) {
     if (created.length) await Promise.all(created.map(i => pushItem(i)));
 
     // Auto-linkear materiales del item padre: stubs recién creados + crafteos/materiales ya existentes
+    // También repara item_ids huérfanos (apuntan a un item ya borrado)
     const _autolink = mats => mats.map(m => {
-      if (m.item_id) return m;
+      if (m.item_id && items.find(i => i.id === m.item_id)) return m;
       const ref = items.find(i =>
         (i.categoria === 'crafteo' || i.categoria === 'material') &&
         normName(i.nombre) === normName(m.nombre)
       );
-      return ref ? { ...m, item_id: ref.id } : m;
+      return ref ? { ...m, item_id: ref.id } : { ...m, item_id: null };
     });
     let linked = false;
     const linkedMats = _autolink(item.materiales);
@@ -3399,6 +3509,26 @@ async function saveItem(e) {
     const linkedAlts = (item.recetas_alt || []).map(r => _autolink(r));
     if (linkedAlts.some((r, ri) => r.some((m, mi) => m.item_id !== item.recetas_alt[ri]?.[mi]?.item_id))) { item.recetas_alt = linkedAlts; linked = true; }
     if (linked) await pushItem(item); // re-guardar con los links actualizados
+  }
+
+  // Al crear un item nuevo: vincular ingredientes sin link o con link roto que coincidan por nombre
+  if (!editingId) {
+    const key = normName(item.nombre);
+    const _needsLink = m =>
+      normName(m.nombre) === key &&
+      (!m.item_id || !items.find(j => j.id === m.item_id));
+    const toRepair = items.filter(i =>
+      i.id !== item.id &&
+      [...(i.materiales || []), ...(i.recetas_alt || []).flat()].some(_needsLink)
+    );
+    if (toRepair.length) {
+      const _repair = mats => mats.map(m => _needsLink(m) ? { ...m, item_id: item.id } : m);
+      for (const dep of toRepair) {
+        dep.materiales  = _repair(dep.materiales  || []);
+        dep.recetas_alt = (dep.recetas_alt || []).map(r => _repair(r));
+      }
+      await Promise.all(toRepair.map(i => pushItem(i)));
+    }
   }
 
   render();

@@ -180,6 +180,12 @@
   }
   @keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
   .card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .card.card-highlight { animation: card-highlight-fade 2s ease forwards; }
+  @keyframes card-highlight-fade {
+    0%   { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(82,183,136,0.35); }
+    70%  { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(82,183,136,0.35); }
+    100% { border-color: var(--border); box-shadow: none; }
+  }
   .card::before {
     content: '';
     position: absolute;

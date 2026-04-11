@@ -618,7 +618,9 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .sug-btn-base        { border-color: rgba(78,205,196,0.4); color: var(--teal); border-style: solid; }
 .sug-btn-known       { border-style: solid; color: var(--green); border-color: rgba(82,183,136,0.4); }
 .sug-btn-superglu    { border-color: rgba(224,140,58,0.4); color: var(--orange); border-style: solid; }
-.sug-btn-superglu:hover { border-color: var(--orange); }
+.sug-btn-superglu:hover  { border-color: var(--orange); }
+.sug-btn-plantilla       { border-color: rgba(155,114,207,0.5); color: var(--purple); border-style: solid; font-weight: 600; }
+.sug-btn-plantilla:hover { border-color: var(--purple); color: var(--purple); }
 
 /* ── CATÁLOGO DE MATERIALES (sidebar) ── */
 .search-input {
