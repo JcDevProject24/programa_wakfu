@@ -1347,10 +1347,10 @@ function buildVarianteHtml(item, label, colorClass) {
     <div class="rec-var-label ${colorClass}">${label}</div>
     <div class="rec-var-nombre" style="font-size:0.78rem;color:var(--text2);font-style:italic;margin-bottom:2px">${item.nombre}</div>
     <div class="rec-var-precio">${precio ? `<strong>${fmtK(precio)}</strong>` : '<span class="muted">Sin precio</span>'}</div>
-    <div class="rec-var-stock">
-      <span title="Farmeados">🌿 ${item.comprados||0}</span>
-      <span title="En venta">🏷 ${item.en_venta||0}</span>
-      <span title="Vendidos">💸 ${item.vendidos||0}</span>
+    <div class="stock-section" style="margin:4px 0">
+      ${_stockField(eid, 'comprados', item.comprados || 0, '🌿')}
+      ${_stockField(eid, 'en_venta',  item.en_venta  || 0, '🏷')}
+      ${_stockField(eid, 'vendidos',  item.vendidos  || 0, '💸')}
     </div>
     <details class="rec-hist">
       <summary class="ph-summary" style="font-size:0.72rem">📈 Historial <span class="ph-count">(${hist.length})</span></summary>
@@ -2487,6 +2487,44 @@ function getRecetasAltFromForm() {
   }).filter(r => r.length);
 }
 
+// Si un material base (primario) no tiene ingredientes, busca un hermano del mismo tier
+// y misma familia de recolección (recProf) que sí los tenga y copia su receta.
+function _prefillFromSiblingBase(profesion, nivel) {
+  const matData = PROF_MAT_BASE[profesion];
+  if (!matData) return;
+  const recProf = matData.recProf;
+  const tier    = getSufijoTier(nivel);
+
+  // Nivel representativo del tier para calcular nombres de hermanos
+  const nivelTier = tier * 10 + 1;
+
+  // Recoger todos los nombres de base materials del mismo recProf (excluye la profesión actual)
+  for (const [prof, data] of Object.entries(PROF_MAT_BASE)) {
+    if (prof === profesion) continue;
+    // Comprobar recProf del entry principal y sus extras
+    const candidatos = [data, ...(data.extras || [])].filter(d => d.recProf === recProf);
+    for (const cand of candidatos) {
+      const sufijo   = cand.masc ? getSufijoMasc(nivelTier) : getSufijo(nivelTier);
+      const nombre   = sufijo ? `${cand.nombre} ${sufijo}` : cand.nombre;
+      const sibItem  = items.find(i =>
+        i.categoria === 'crafteo' &&
+        normName(i.nombre) === normName(nombre) &&
+        (i.materiales || []).length > 0
+      );
+      if (!sibItem) continue;
+      // Hermano encontrado con receta: copiar sus ingredientes al formulario
+      // Resolver item_id por nombre si el hermano no lo tenía enlazado
+      sibItem.materiales.forEach(m => {
+        const resolvedId = (m.item_id && items.find(i => i.id === m.item_id))
+          ? m.item_id
+          : (items.find(i => normName(i.nombre) === normName(m.nombre))?.id || '');
+        addMaterialRow(m.nombre, m.cantidad, m.profesion || '', resolvedId, m.nivel_rec || null, m.rareza_mat || null);
+      });
+      return; // Solo necesitamos uno
+    }
+  }
+}
+
 // Abre el modal simplificado para un material base o superglú (stock / receta / precio)
 function openMatBaseModal(nombre) {
   const info = _inferMatBase(nombre);
@@ -2504,6 +2542,10 @@ function openMatBaseModal(nombre) {
     updateMatSuggestions();
   }
   _applyMatBaseFormSimplify(info);
+  // Pre-rellenar desde hermano del mismo tier y recProf si existe
+  if (info?.profesion && info?.nivel != null && !info.isSecundario && !info.isSuperglu) {
+    _prefillFromSiblingBase(info.profesion, info.nivel);
+  }
 }
 
 function openModal(id) {
@@ -2548,8 +2590,14 @@ function openModal(id) {
         (item.materiales || []).forEach(m => addMaterialRow(m.nombre, m.cantidad, m.profesion || '', m.item_id || '', m.nivel_rec || null, m.rareza_mat || null));
         // Simplificar modal si es un material base (primario o secundario)
         setTimeout(() => {
-          _applyMatBaseFormSimplify(_inferMatBase(item.nombre));
+          const infoBase = _inferMatBase(item.nombre);
+          _applyMatBaseFormSimplify(infoBase);
           (item.recetas_alt || []).forEach(r => addRecetaAlt(r));
+          // Si es un primario sin ingredientes aún, intentar copiar de hermano del mismo tier
+          if (infoBase?.profesion && infoBase?.nivel != null && !infoBase.isSecundario && !infoBase.isSuperglu
+              && (item.materiales || []).length === 0) {
+            _prefillFromSiblingBase(infoBase.profesion, infoBase.nivel);
+          }
         }, 0);
       }
     }
@@ -3493,12 +3541,12 @@ async function saveItem(e) {
     }
     if (created.length) await Promise.all(created.map(i => pushItem(i)));
 
-    // Auto-linkear materiales del item padre: stubs recién creados + crafteos/materiales ya existentes
+    // Auto-linkear materiales del item padre: stubs recién creados + crafteos/materiales/recoleccion ya existentes
     // También repara item_ids huérfanos (apuntan a un item ya borrado)
     const _autolink = mats => mats.map(m => {
       if (m.item_id && items.find(i => i.id === m.item_id)) return m;
       const ref = items.find(i =>
-        (i.categoria === 'crafteo' || i.categoria === 'material') &&
+        (i.categoria === 'crafteo' || i.categoria === 'material' || i.categoria === 'recoleccion') &&
         normName(i.nombre) === normName(m.nombre)
       );
       return ref ? { ...m, item_id: ref.id } : { ...m, item_id: null };
