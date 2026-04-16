@@ -220,8 +220,10 @@ let matCount        = 0;
 let reponerMode       = false;
 let publicarMode      = false;
 let reponerSortAsc    = true;          // orden de "Qué voy a craftear": true=ascendente por nivel
-let _reponerHiddenIds = new Set();     // IDs de crafteos ocultados con el ojo
+let _reponerHiddenIds  = new Set(JSON.parse(localStorage.getItem('reponerHiddenIds') || '[]')); // IDs de crafteos ocultados con el ojo
+let _reponerCraftSelIds = new Set(); // IDs marcados para craftear
 let _pubSearchText    = '';            // filtro del buscador del panel publicar
+let _pendSearchText   = '';            // filtro del buscador de pendientes de vender
 let craftearPreview = null; // null | { crafteos: [...items], mats: Map<matItem.id, qty> }
 
 // ─────────────────────────────────────────────
@@ -767,11 +769,10 @@ function toggleReponerSort() {
 function toggleReponerHidden(id) {
   if (_reponerHiddenIds.has(id)) _reponerHiddenIds.delete(id);
   else _reponerHiddenIds.add(id);
+  localStorage.setItem('reponerHiddenIds', JSON.stringify([..._reponerHiddenIds]));
   const el = document.getElementById('reponer-panel');
   if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
 }
-
-let _matOriginalOrder = null;
 
 function highlightMats(id) {
   clearMatHighlights();
@@ -793,32 +794,28 @@ function highlightMats(id) {
   }
   _collect(getCheapestReceta(item), 0);
 
-  const container = document.getElementById('rsl-list-inner');
-  if (!container || !usedKeys.size) return;
-
-  const rows = [...container.querySelectorAll('.rsl-row')];
-  const matching = rows.filter(r => usedKeys.has(r.dataset.nombreKey));
-  if (!matching.length) return;
-
-  _matOriginalOrder = [...container.children]; // guardar orden original
-  matching.forEach(r => r.classList.add('rsl-row-highlight'));
-  [...matching].reverse().forEach(r => container.prepend(r)); // mover al principio
+  document.querySelectorAll('#rsl-list-inner .rsl-row').forEach(row => {
+    if (usedKeys.has(row.dataset.nombreKey)) row.classList.add('rsl-row-highlight');
+  });
 }
 
 function clearMatHighlights() {
-  const container = document.getElementById('rsl-list-inner');
-  if (!container) return;
-  container.querySelectorAll('.rsl-row-highlight').forEach(r => r.classList.remove('rsl-row-highlight'));
-  if (_matOriginalOrder) {
-    _matOriginalOrder.forEach(r => container.appendChild(r)); // restaurar orden
-    _matOriginalOrder = null;
-  }
+  document.querySelectorAll('#rsl-list-inner .rsl-row-highlight')
+    .forEach(row => row.classList.remove('rsl-row-highlight'));
 }
 
 function _filterPubList(val) {
   _pubSearchText = val;
   const q = val.toLowerCase();
   document.querySelectorAll('#pub-list-inner .rsl-c-row').forEach(row => {
+    row.style.display = (!q || (row.dataset.nombre || '').includes(q)) ? '' : 'none';
+  });
+}
+
+function _filterPendList(val) {
+  _pendSearchText = val;
+  const q = val.toLowerCase();
+  document.querySelectorAll('#pend-list-inner .rsl-c-row').forEach(row => {
     row.style.display = (!q || (row.dataset.nombre || '').includes(q)) ? '' : 'none';
   });
 }
@@ -918,7 +915,7 @@ function _buildPublicarPanelHtml(pubItems) {
     const diasHtml = diasEnVenta !== null
       ? `<span class="pub-dias ${diasEnVenta >= 6 ? 'pub-dias-caduca' : ''}" title="${diasEnVenta >= 6 ? 'Caduca pronto' : ''}">⏳ ${diasEnVenta}d</span>`
       : '';
-    return `<div class="rsl-c-row">
+    return `<div class="rsl-c-row" data-nombre="${i.nombre.toLowerCase()}">
       <span class="rsl-c-emoji">${emoji}</span>
       <span class="rsl-c-nombre" onclick="openModal('${eid}')" style="cursor:pointer">${i.nombre}</span>
       ${i.rareza ? `<span class="loot-rareza-badge ${rClass}" style="font-size:0.6rem;padding:0 5px;flex-shrink:0">${i.rareza}</span>` : ''}
@@ -940,7 +937,11 @@ function _buildPublicarPanelHtml(pubItems) {
       <span>🏷 Pendientes de vender (${pendientes.length})</span>
       ${totalBeneficio > 0 ? `<span style="font-family:'Cinzel',serif;font-size:0.7rem;color:var(--green)">Beneficio esperado: +${fmtK(totalBeneficio)}</span>` : ''}
     </div>
-    <div class="rsl-crafteos-list">${pendientesRows}</div>` : '';
+    <div class="rsl-search-wrap">
+      <input class="rsl-search" type="text" placeholder="⌕ Buscar item…" value="${_pendSearchText.replace(/"/g,'&quot;')}"
+        oninput="_filterPendList(this.value)">
+    </div>
+    <div class="rsl-crafteos-list" id="pend-list-inner">${pendientesRows}</div>` : '';
 
   return `<div class="publicar-panel-inner">
     <div class="reponer-panel-head">
@@ -1028,7 +1029,31 @@ async function confirmCraftear() {
 }
 
 function craftearTodosReponer() {
-  previewCraftear(calcReponerItems().filter(i => !_reponerHiddenIds.has(i.id)));
+  const todos = calcReponerItems().filter(i => !_reponerHiddenIds.has(i.id));
+  todos.forEach(i => _reponerCraftSelIds.add(i.id));
+  const el = document.getElementById('reponer-panel');
+  if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+}
+
+function toggleReponerCraftSel(id) {
+  if (_reponerCraftSelIds.has(id)) _reponerCraftSelIds.delete(id);
+  else _reponerCraftSelIds.add(id);
+  const el = document.getElementById('reponer-panel');
+  if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+}
+
+function cancelarSelReponer() {
+  _reponerCraftSelIds.clear();
+  const el = document.getElementById('reponer-panel');
+  if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+}
+
+async function confirmarReponerSel() {
+  const crafteos = items.filter(i => _reponerCraftSelIds.has(i.id));
+  _reponerCraftSelIds.clear();
+  if (!crafteos.length) return;
+  craftearPreview = { crafteos, mats: new Map() };
+  await confirmCraftear();
 }
 
 // Mueve 1 de comprados → en_venta en todos los que tienen stock sin listar
@@ -1153,6 +1178,11 @@ function _buildReponerPanelHtml(reponerItems) {
   const matList   = [...mats.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   const totalCost = matList.reduce((s, m) => s + m.precio * m.qty, 0);
 
+  // Mapa de consumo para items seleccionados (para mostrar −qty en la lista de materiales)
+  const selMats = _reponerCraftSelIds.size > 0
+    ? _calcCraftearMats(items.filter(i => _reponerCraftSelIds.has(i.id)))
+    : new Map();
+
   // Auto-crear items de 'material' para Superglú que aún no tengan entrada en items
   for (const m of matList) {
     const nombre = (m.nombreBase || m.nombre).trim();
@@ -1205,23 +1235,19 @@ function _buildReponerPanelHtml(reponerItems) {
     return `<div class="rsl-row" data-nombre-key="${normName(m.nombreBase || m.nombre)}">
       <span class="rsl-nombre"><button class="rsl-copy-btn" onclick="navigator.clipboard.writeText('${m.nombre.replace(/'/g,"\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1200)" title="Copiar nombre">📋</button><span class="rsl-nombre-txt"${matItem ? ` onclick="openModal('${matItem.id.replace(/'/g,"\\'")}')" style="cursor:pointer"` : ''}>${m.nombre}</span></span>
       <span class="rsl-qty">×${m.qty}</span>
-      <span class="rsl-stock ${falta > 0 ? 'rsl-low' : 'rsl-ok'}">${matItem && stockAct === 0 ? `<button class="rsl-stock-icon-btn" onclick="setStock('${midEsc}','comprados',${m.qty})" title="Poner stock a ${m.qty}">📦</button>` : '📦'} ${stockInput} ${faltaHtml}${(() => { const c = matItem ? (craftearPreview?.mats.get(matItem.id) || 0) : 0; return c > 0 ? `<span class="rsl-consume">−${c}</span>` : ''; })()}</span>
+      <span class="rsl-stock ${falta > 0 ? 'rsl-low' : 'rsl-ok'}">${matItem && stockAct === 0 ? `<button class="rsl-stock-icon-btn" onclick="setStock('${midEsc}','comprados',${m.qty})" title="Poner stock a ${m.qty}">📦</button>` : '📦'} ${stockInput} ${faltaHtml}${(() => { const c = matItem ? (selMats.get(matItem.id) || 0) : 0; return c > 0 ? `<span class="rsl-consume">−${c}</span>` : ''; })()}</span>
       <span class="rsl-precio-wrap">🏷 ${precioInput}</span>
       ${m.precio > 0 ? `<span class="rsl-coste">${fmtK(m.precio * m.qty)}</span>` : '<span class="rsl-coste" style="color:var(--muted)">—</span>'}
     </div>`;
   }).join('');
 
-  return `<div class="reponer-panel-inner${craftearPreview ? ' craftear-preview-mode' : ''}">
+  return `<div class="reponer-panel-inner">
     <div class="reponer-panel-head">
       <span>↺ <strong>${reponerItems.length}</strong> items a reponer · coste estimado: <strong class="reponer-coste">${totalCost > 0 ? fmtK(totalCost) : '—'}</strong></span>
       <div class="reponer-btns">
-        ${craftearPreview
-          ? `<span class="rsl-preview-label">¿Confirmar crafteo de ${craftearPreview.crafteos.length === reponerItems.length ? 'todos' : craftearPreview.crafteos.map(i=>i.nombre).join(', ')}?</span>
-             <button class="reponer-btn reponer-btn-confirm" onclick="confirmCraftear()">✅ Confirmar</button>
-             <button class="reponer-btn reponer-btn-cancel" onclick="cancelCraftear()">✕ Cancelar</button>`
-          : `<button class="reponer-btn" onclick="craftearTodosReponer()" title="Suma 1 a Crafteados en cada item de la lista">🔨 Craftear todos</button>
-             ${pendingPub.length ? `<button class="reponer-btn reponer-btn-pub" onclick="publicarReponer()" title="Mueve 1 de Crafteados a En Venta en los ${pendingPub.length} items pendientes">🏷 Publicar (${pendingPub.length})</button>` : ''}`
-        }
+        <button class="reponer-btn" onclick="craftearTodosReponer()" title="Marca todos los items para craftear">🔨 Craftear todos</button>
+        ${_reponerCraftSelIds.size > 0 ? `<button class="reponer-btn reponer-btn-cancel" onclick="cancelarSelReponer()">✕ Cancelar</button>` : ''}
+        ${pendingPub.length ? `<button class="reponer-btn reponer-btn-pub" onclick="publicarReponer()" title="Mueve 1 de Crafteados a En Venta en los ${pendingPub.length} items pendientes">🏷 Publicar (${pendingPub.length})</button>` : ''}
       </div>
     </div>
     <div class="rsl-search-wrap">
@@ -1232,6 +1258,7 @@ function _buildReponerPanelHtml(reponerItems) {
       ${matRows}
       ${totalCost > 0 ? `<div class="rsl-total">Total materiales: <strong>${fmtK(totalCost)}</strong></div>` : ''}
     </div>
+    ${_reponerCraftSelIds.size > 0 ? `<button class="reponer-btn reponer-btn-confirm rsl-confirm-btn" onclick="confirmarReponerSel()">✅ Confirmar crafteo (${_reponerCraftSelIds.size})</button>` : ''}
     <div class="rsl-crafteos-head">🔨 Qué voy a craftear
       <button class="rsl-sort-btn" onclick="toggleReponerSort()" title="Cambiar orden por nivel">
         ${reponerSortAsc ? '↑ Nivel' : '↓ Nivel'}
@@ -1275,8 +1302,8 @@ function _buildReponerPanelHtml(reponerItems) {
           ${stale ? `<span class="stale-icon rsl-stale" title="Precio desactualizado (>6h)">⏱</span>` : ''}
         </span>`;
 
-        const isInPreview = craftearPreview?.crafteos.some(c => c.id === i.id);
-        return `<div class="rsl-c-row${isInPreview ? ' rsl-c-row-preview' : ''}${hidden ? ' rsl-c-row-hidden' : ''}"
+        const isSel = _reponerCraftSelIds.has(i.id);
+        return `<div class="rsl-c-row${isSel ? ' rsl-c-row-preview' : ''}${hidden ? ' rsl-c-row-hidden' : ''}"
           onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()">
           <button class="rsl-c-eye-btn${hidden ? ' rsl-c-eye-off' : ''}" onclick="toggleReponerHidden('${eid}')" title="${hidden ? 'Activar (suma materiales)' : 'Desactivar (quita materiales)'}">${hidden ? '🙈' : '👁'}</button>
           <span class="rsl-c-emoji">${emoji}</span>
@@ -1286,7 +1313,7 @@ function _buildReponerPanelHtml(reponerItems) {
           <span class="rsl-c-spacer"></span>
           ${priceHtml}
           ${profitStr}
-          ${!craftearPreview ? `<button class="rsl-c-craft-btn" onclick="previewCraftearUno('${eid}')" title="Craftear solo este">🔨</button>` : ''}
+          <button class="rsl-c-craft-btn${_reponerCraftSelIds.has(i.id) ? ' rsl-c-craft-btn-sel' : ''}" onclick="toggleReponerCraftSel('${eid}')" title="${_reponerCraftSelIds.has(i.id) ? 'Deseleccionar' : 'Marcar para craftear'}">🔨</button>
         </div>`;
       }).join('')}
       ${(() => { const { equipoHtml, basicoHtml } = _renderSubCrafteos(subCrafteos, reponerItems); return equipoHtml + basicoHtml; })()}
@@ -1929,7 +1956,10 @@ function render() {
   const reponerPanelEl = document.getElementById('reponer-panel');
   if (reponerPanelEl) {
     if (reponerMode && !matBaseFilter) {
+      const _rslScroll = document.getElementById('rsl-list-inner')?.scrollTop ?? 0;
       reponerPanelEl.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+      const _rslEl = document.getElementById('rsl-list-inner');
+      if (_rslEl) _rslEl.scrollTop = _rslScroll;
       reponerPanelEl.style.display = '';
     } else {
       reponerPanelEl.style.display = 'none';
@@ -2685,6 +2715,7 @@ function openModal(id) {
         setTimeout(() => {
           const infoBase = _inferMatBase(item.nombre);
           _applyMatBaseFormSimplify(infoBase);
+          if (infoBase?.isSuperglu) document.getElementById('modal-title').textContent = item.nombre;
           (item.recetas_alt || []).forEach(r => addRecetaAlt(r));
           // Si es un primario sin ingredientes aún, intentar copiar de hermano del mismo tier
           if (infoBase?.profesion && infoBase?.nivel != null && !infoBase.isSecundario && !infoBase.isSuperglu
@@ -2936,7 +2967,7 @@ function _updateCosteBaseVisibility() {
 
 function onCategoriaChange() {
   const cat       = document.getElementById('f-categoria').value;
-  const isCrafteo = cat === 'crafteo';
+  const isCrafteo = cat === 'crafteo' || cat === 'material';
   document.getElementById('mat-section-wrap').style.display = isCrafteo ? '' : 'none';
   document.getElementById('equip-fields').style.display     = isCrafteo ? '' : 'none';
   document.getElementById('recolec-fields').style.display   = isCrafteo ? 'none' : '';

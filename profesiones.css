@@ -1357,6 +1357,8 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 }
 .rsl-c-row:hover .rsl-c-craft-btn { opacity: 1; }
 .rsl-c-craft-btn:hover { background: rgba(82,183,136,0.12); border-color: var(--green); }
+.rsl-c-craft-btn-sel { opacity: 1 !important; background: rgba(82,183,136,0.2) !important; border-color: var(--green) !important; }
+.rsl-confirm-btn { display: block; width: 100%; margin-bottom: 6px; }
 .pub-btn { padding: 3px 8px !important; font-size: 0.6rem !important; flex-shrink: 0; }
 
 /* Ojo en crafteos del panel reponer */
