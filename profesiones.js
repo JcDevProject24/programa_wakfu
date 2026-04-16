@@ -1105,7 +1105,7 @@ function _renderSubCrafteos(subCrafteos, reponerItems) {
   const equipoHtml = equipos.map(sc => {
     const [emoji, , profitStr, eid, priceHtml] = _scRow(sc);
     const rClass = rarezaClass(sc.item?.rareza);
-    return `<div class="rsl-c-row">
+    return `<div class="rsl-c-row"${eid ? ` onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()"` : ''}>
       <span class="rsl-c-emoji">${emoji}</span>
       <span class="rsl-c-nombre" ${eid ? `onclick="openModal('${eid}')" style="cursor:pointer"` : ''}>${sc.nombre}<span class="rsl-ingrediente-sub">(ingrediente)</span></span>
       ${sc.item?.rareza ? `<span class="loot-rareza-badge ${rClass}" style="font-size:0.6rem;padding:0 5px;flex-shrink:0">${sc.item.rareza}</span>` : ''}
@@ -1119,8 +1119,8 @@ function _renderSubCrafteos(subCrafteos, reponerItems) {
 
   const basicoHtml = basicos.length
     ? `<div class="rsl-sub-crafteos-head">🧱 Crafteos básicos</div>` + basicos.map(sc => {
-        const [emoji, , profitStr, , priceHtml] = _scRow(sc);
-        return `<div class="rsl-c-row">
+        const [emoji, , profitStr, eid, priceHtml] = _scRow(sc);
+        return `<div class="rsl-c-row"${eid ? ` onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()"` : ''}>
           <span class="rsl-c-emoji">${emoji}</span>
           <span class="rsl-c-nombre">${sc.nombre}</span>
           <span class="rsl-c-qty">×${sc.qty}</span>
@@ -3249,11 +3249,13 @@ function _matRarezaBtns(c, existingMatches) {
 
 function _matExtraHtml(c, nombre, profesionMat, profOpts, itemId, refItem, nivelRec = null, rarezaMat = null) {
   if (itemId && refItem) {
-    const rClass = rarezaClass(refItem.rareza);
+    const rClass  = rarezaClass(refItem.rareza);
+    const rLabel  = RAREZAS.includes(refItem.rareza) ? refItem.rareza : null;
+    const eid     = refItem.id.replace(/'/g, "\\'");
     return `<span class="mat-linked-info">
       🔗 Vinculado ·
-      <span class="loot-rareza-badge ${rClass}" style="font-size:0.62rem;padding:0 5px">${refItem.rareza || '?'}</span>
-      ${refItem.nombre}
+      ${rLabel ? `<span class="loot-rareza-badge ${rClass}" style="font-size:0.62rem;padding:0 5px">${rLabel}</span>` : ''}
+      <span class="mat-linked-nombre" onclick="closeModal();setTimeout(()=>openModal('${eid}'),50)" title="Clic para editar este item">${refItem.nombre}</span>
     </span>
     <button type="button" class="mat-unlink-btn" onclick="unlinkMaterial(${c})">✕ Desvincular</button>`;
   }

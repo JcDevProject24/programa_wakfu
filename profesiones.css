@@ -438,6 +438,8 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   flex-shrink: 0;
 }
 .mat-unlink-btn:hover { border-color: var(--red); color: var(--red); }
+.mat-linked-nombre { cursor: pointer; color: var(--teal); text-decoration: underline dotted; }
+.mat-linked-nombre:hover { color: var(--text1); }
 
 /* Precio vinculado (🔗) en la card */
 .mat-linked-price {
