@@ -449,7 +449,8 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
   white-space: nowrap;
 }
 .mat-row-linked { background: rgba(78,205,196,0.04); }
-.mp-linked { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.74rem; }
+.mp-linked { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.74rem; display:flex; align-items:center; gap:3px; }
+.mf-precio-linked { background:transparent; border:1px solid rgba(78,205,196,0.35); border-radius:4px; color:var(--teal); font-family:'Cinzel',serif; font-size:0.74rem; padding:1px 4px; text-align:right; }
 
 /* ── COMPARATIVA COMPRA vs CRAFTEO ── */
 .mat-opt-wrap {
@@ -1267,6 +1268,7 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .rsl-stock-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .rsl-stock-input:focus { border-bottom-color: currentColor; cursor: text; }
 .rsl-coste  { color: var(--gold); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: right; }
+.rsl-crafteo-dim { color: var(--muted); font-size: 0.68rem; text-decoration: line-through; white-space: nowrap; }
 .rsl-crafteos-head {
   font-family: 'Cinzel', serif; font-size: 0.63rem; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--gold);

@@ -475,7 +475,7 @@ function rarezaClass(r) {
 // AGRUPACIÓN DE RECOLECCIÓN
 // Profesiones con un único recurso por tier (común + raro del mismo nodo)
 // Peletero excluido: tiene múltiples esencias distintas por nivel, sin versión rara
-const PROFS_TIER_GROUPING = new Set(['Herbolario', 'Minero', 'Campesino', 'Leñador', 'Pescador']);
+const PROFS_TIER_GROUPING = new Set(['Herbolario', 'Minero', 'Campesino', 'Leñador']);
 
 // Clave de grupo: tier+profesion para profesiones con un recurso único por tier
 // Resto: grupo_recoleccion || nombre + profesion
@@ -1210,6 +1210,8 @@ function _buildReponerPanelHtml(reponerItems) {
 
   const matRows = matList.map(m => {
     const matItem  = findMatItem(m.nombreBase || m.nombre);
+    const crafteoRef = items.find(i => i.categoria === 'crafteo' && normName(i.nombre) === normName(m.nombreBase || m.nombre));
+    const precioCreacion = crafteoRef ? calcCoste(crafteoRef) : 0;
     const stockAct = matItem ? (matItem.comprados || 0) : 0;
     const falta    = Math.max(0, m.qty - stockAct);
     const midEsc   = matItem ? matItem.id.replace(/'/g, "\\'") : '';
@@ -1236,8 +1238,8 @@ function _buildReponerPanelHtml(reponerItems) {
       <span class="rsl-nombre"><button class="rsl-copy-btn" onclick="navigator.clipboard.writeText('${m.nombre.replace(/'/g,"\\'")}');this.textContent='✅';setTimeout(()=>this.textContent='📋',1200)" title="Copiar nombre">📋</button><span class="rsl-nombre-txt"${matItem ? ` onclick="openModal('${matItem.id.replace(/'/g,"\\'")}')" style="cursor:pointer"` : ''}>${m.nombre}</span></span>
       <span class="rsl-qty">×${m.qty}</span>
       <span class="rsl-stock ${falta > 0 ? 'rsl-low' : 'rsl-ok'}">${matItem && stockAct === 0 ? `<button class="rsl-stock-icon-btn" onclick="setStock('${midEsc}','comprados',${m.qty})" title="Poner stock a ${m.qty}">📦</button>` : '📦'} ${stockInput} ${faltaHtml}${(() => { const c = matItem ? (selMats.get(matItem.id) || 0) : 0; return c > 0 ? `<span class="rsl-consume">−${c}</span>` : ''; })()}</span>
-      <span class="rsl-precio-wrap">🏷 ${precioInput}</span>
-      ${m.precio > 0 ? `<span class="rsl-coste">${fmtK(m.precio * m.qty)}</span>` : '<span class="rsl-coste" style="color:var(--muted)">—</span>'}
+      <span class="rsl-precio-wrap">🏷 ${precioInput}${precioCreacion > 0 ? `<span class="rsl-crafteo-dim" title="Coste de craftear (vs comprar)">⚒ ${fmtK(precioCreacion)}</span>` : ''}</span>
+      ${m.precio > 0 ? `<span class="rsl-coste">${fmtK(m.precio * m.qty)}${precioCreacion > 0 ? `<span class="rsl-crafteo-dim"> / ${fmtK(precioCreacion * m.qty)}</span>` : ''}</span>` : '<span class="rsl-coste" style="color:var(--muted)">—</span>'}
     </div>`;
   }).join('');
 
@@ -3183,8 +3185,14 @@ function setMatRareza(c, rareza) {
 
 function _matPrevHtml(refItem, precio) {
   if (refItem) {
-    return `<span class="mp-val mp-linked" title="Precio de ${refItem.nombre} (${refItem.rareza || ''}) — se actualiza automáticamente">
-      🔗 ${precio > 0 ? fmtK(precio) : '—'}
+    const esc = refItem.nombre.replace(/'/g, "\\'");
+    return `<span class="mp-val mp-linked">
+      🔗 <input class="form-input mf-precio-linked" type="number" min="0" placeholder="—"
+        value="${precio || ''}" size="${Math.max(4, String(precio||'').length + 1)}"
+        oninput="this.size=Math.max(4,this.value.length+1)"
+        onchange="updateCatalogPrice('${esc}',this.value)"
+        onkeydown="if(event.key==='Enter')this.blur()"
+        title="Precio de ${refItem.nombre} · actualiza catálogo">
     </span>`;
   }
   return precio > 0 ? `<span class="mp-val">${fmtK(precio)}</span>` : `<span class="mp-empty">—</span>`;
@@ -3514,7 +3522,11 @@ function _stubCategoria(m) {
 
 async function saveItem(e) {
   e.preventDefault();
-  const profesion = document.getElementById('f-profesion').value;
+  // Cuando el modal está simplificado (prof-cat-row oculto), la profesión puede no estar
+  // en el <select> (e.g. 'Panadero' para aceites) → tomar del item existente como fallback
+  const profRowHidden = document.getElementById('prof-cat-row')?.style.display === 'none';
+  const profesion = document.getElementById('f-profesion').value
+    || (profRowHidden && editingId ? (items.find(i => i.id === editingId)?.profesion || '') : '');
   const categoria = document.getElementById('f-categoria').value;
 
   // Validación manual (el form tiene novalidate para evitar bloqueos del navegador)
