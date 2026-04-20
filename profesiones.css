@@ -1217,6 +1217,19 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .reponer-btn:hover { background: rgba(82,183,136,0.12); border-color: var(--green); }
 .reponer-btn-pub { border-color: rgba(180,155,80,0.5); color: var(--gold); }
 .reponer-btn-pub:hover { background: rgba(180,155,80,0.1); border-color: var(--gold2); }
+.rsl-prof-filter {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 6px 14px 2px;
+  border-bottom: 1px solid rgba(82,183,136,0.12);
+}
+.rsl-prof-btn {
+  background: transparent; border: 1px solid rgba(82,183,136,0.25);
+  border-radius: 5px; cursor: pointer; font-size: 1rem;
+  padding: 2px 6px; line-height: 1.3; transition: all .15s;
+  opacity: 0.5;
+}
+.rsl-prof-btn:hover { opacity: 0.85; border-color: rgba(82,183,136,0.5); background: rgba(82,183,136,0.08); }
+.rsl-prof-btn-active { opacity: 1; border-color: var(--green); background: rgba(82,183,136,0.15); }
 .rsl-search-wrap { padding: 6px 14px 4px; }
 .rsl-search {
   width: 100%; font-size: 0.78rem; padding: 4px 8px; border-radius: 4px;

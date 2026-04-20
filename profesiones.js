@@ -222,6 +222,7 @@ let publicarMode      = false;
 let reponerSortAsc    = true;          // orden de "Qué voy a craftear": true=ascendente por nivel
 let _reponerHiddenIds  = new Set(JSON.parse(localStorage.getItem('reponerHiddenIds') || '[]')); // IDs de crafteos ocultados con el ojo
 let _reponerCraftSelIds = new Set(); // IDs marcados para craftear
+let reponerProfFilter   = new Set(); // profesiones activas en el filtro del panel reponer
 let _pubSearchText    = '';            // filtro del buscador del panel publicar
 let _pendSearchText   = '';            // filtro del buscador de pendientes de vender
 let craftearPreview = null; // null | { crafteos: [...items], mats: Map<matItem.id, qty> }
@@ -737,6 +738,7 @@ function _filterRslList(q) {
 function calcReponerItems() {
   return items.filter(i => {
     if (i.categoria !== 'crafteo') return false;
+    if (reponerProfFilter.size > 0 && !reponerProfFilter.has(i.profesion)) return false;
     if ((i.comprados || 0) > 0) return false;
     // Si nunca se ha vendido y ya hay algo en venta, no reponer todavía
     if ((i.vendidos || 0) === 0 && (i.en_venta || 0) > 0) return false;
@@ -770,6 +772,12 @@ function toggleReponerHidden(id) {
   if (_reponerHiddenIds.has(id)) _reponerHiddenIds.delete(id);
   else _reponerHiddenIds.add(id);
   localStorage.setItem('reponerHiddenIds', JSON.stringify([..._reponerHiddenIds]));
+  const el = document.getElementById('reponer-panel');
+  if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+}
+
+function toggleReponerProfFilter(p) {
+  reponerProfFilter.has(p) ? reponerProfFilter.delete(p) : reponerProfFilter.add(p);
   const el = document.getElementById('reponer-panel');
   if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
 }
@@ -1135,8 +1143,11 @@ function _renderSubCrafteos(subCrafteos, reponerItems) {
 }
 
 function _buildReponerPanelHtml(reponerItems) {
+  const profFilterHtml = `<div class="rsl-prof-filter">
+    ${PROFESIONES_CRAFTEO.map(p => `<button class="rsl-prof-btn${reponerProfFilter.has(p) ? ' rsl-prof-btn-active' : ''}" onclick="toggleReponerProfFilter('${p.replace(/'/g,"\\'")}')" title="${p}">${PROF_EMOJI[p] || p}</button>`).join('')}
+  </div>`;
   if (!reponerItems.length) {
-    return `<div class="reponer-empty">Sin items a reponer con profit ≥ 50% y &gt; 8.000 netos sin stock en venta.</div>`;
+    return `<div class="reponer-panel-inner">${profFilterHtml}<div class="reponer-empty">Sin items a reponer con profit ≥ 50% y &gt; 8.000 netos sin stock en venta.</div></div>`;
   }
 
   // Agrega materiales a comprar de forma recursiva:
@@ -1252,6 +1263,7 @@ function _buildReponerPanelHtml(reponerItems) {
         ${pendingPub.length ? `<button class="reponer-btn reponer-btn-pub" onclick="publicarReponer()" title="Mueve 1 de Crafteados a En Venta en los ${pendingPub.length} items pendientes">🏷 Publicar (${pendingPub.length})</button>` : ''}
       </div>
     </div>
+    ${profFilterHtml}
     <div class="rsl-search-wrap">
       <input class="rsl-search" type="text" placeholder="⌕ Filtrar material…"
         oninput="_filterRslList(this.value)">
