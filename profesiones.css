@@ -1265,6 +1265,18 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .rsl-row:hover { background: rgba(255,255,255,0.04); }
 .rsl-row:hover .rsl-copy-btn { opacity: 0.55; }
 .rsl-copy-btn:hover { opacity: 1 !important; }
+.rsl-stock-badge { font-size: 0.7rem; color: var(--green); opacity: 0.8; flex-shrink: 0; }
+.rsl-stock-badge-full { opacity: 1; font-weight: 600; font-family: 'Cinzel', serif; font-size: 0.72rem; }
+.rsl-tienes-wrap { display: inline-flex; align-items: center; gap: 1px; color: var(--green); opacity: 0.75; font-size: 0.72rem; }
+.rsl-tienes-input { color: var(--green) !important; }
+.rsl-c-qty-wrap { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+.rsl-qty-btn {
+  background: transparent; border: 1px solid rgba(100,180,255,0.25);
+  border-radius: 3px; color: var(--teal); cursor: pointer;
+  font-size: 0.75rem; line-height: 1; padding: 1px 5px;
+  transition: all .12s;
+}
+.rsl-qty-btn:hover { background: rgba(100,180,255,0.12); border-color: var(--teal); }
 .rsl-qty    { color: var(--teal); font-family: 'Cinzel', serif; font-size: 0.72rem; text-align: center; }
 .rsl-stock  { font-size: 0.75rem; display: flex; align-items: center; gap: 4px; }
 .rsl-ok     { color: var(--green); }

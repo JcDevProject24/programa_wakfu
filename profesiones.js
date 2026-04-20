@@ -223,6 +223,7 @@ let reponerSortAsc    = true;          // orden de "Qué voy a craftear": true=a
 let _reponerHiddenIds  = new Set(JSON.parse(localStorage.getItem('reponerHiddenIds') || '[]')); // IDs de crafteos ocultados con el ojo
 let _reponerCraftSelIds = new Set(); // IDs marcados para craftear
 let reponerProfFilter   = new Set(); // profesiones activas en el filtro del panel reponer
+let _reponerQty         = new Map(); // item.id → cantidad a craftear (defecto 1)
 let _pubSearchText    = '';            // filtro del buscador del panel publicar
 let _pendSearchText   = '';            // filtro del buscador de pendientes de vender
 let craftearPreview = null; // null | { crafteos: [...items], mats: Map<matItem.id, qty> }
@@ -740,8 +741,7 @@ function calcReponerItems() {
     if (i.categoria !== 'crafteo') return false;
     if (reponerProfFilter.size > 0 && !reponerProfFilter.has(i.profesion)) return false;
     if ((i.comprados || 0) > 0) return false;
-    // Si nunca se ha vendido y ya hay algo en venta, no reponer todavía
-    if ((i.vendidos || 0) === 0 && (i.en_venta || 0) > 0) return false;
+    if ((i.en_venta || 0) > 0) return false;
     const p = calcProfit(i);
     if (!p || p.profitPct === null) return false;
     return p.profitPct >= 50 && p.profit > 6000;
@@ -782,18 +782,30 @@ function toggleReponerProfFilter(p) {
   if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
 }
 
+function setReponerQty(id, delta) {
+  const next = Math.max(1, (_reponerQty.get(id) || 1) + delta);
+  if (next === 1) _reponerQty.delete(id); else _reponerQty.set(id, next);
+  const el = document.getElementById('reponer-panel');
+  if (el) el.innerHTML = _buildReponerPanelHtml(calcReponerItems());
+}
+
 function highlightMats(id) {
   clearMatHighlights();
   const item = items.find(i => i.id === id);
   if (!item) return;
   const usedKeys = new Set();
+  const usedSubIds = new Set();
   function _collect(mats, depth) {
     if (depth > 6) return;
     for (const m of (mats || [])) {
       const info = getMatInfo(m);
       if (info.modo === 'crafteo' && m.item_id) {
         const sub = items.find(i => i.id === m.item_id);
-        if (sub) { _collect(getCheapestReceta(sub), depth + 1); continue; }
+        if (sub) {
+          usedSubIds.add(m.item_id);
+          _collect(getCheapestReceta(sub), depth + 1);
+          continue;
+        }
       }
       const ref   = m.item_id ? items.find(i => i.id === m.item_id) : null;
       const label = ref ? (ref.rareza ? `${ref.nombre} [${ref.rareza}]` : ref.nombre) : m.nombre;
@@ -805,10 +817,13 @@ function highlightMats(id) {
   document.querySelectorAll('#rsl-list-inner .rsl-row').forEach(row => {
     if (usedKeys.has(row.dataset.nombreKey)) row.classList.add('rsl-row-highlight');
   });
+  document.querySelectorAll('.rsl-crafteos-list .rsl-c-row[data-item-id]').forEach(row => {
+    if (usedSubIds.has(row.dataset.itemId)) row.classList.add('rsl-row-highlight');
+  });
 }
 
 function clearMatHighlights() {
-  document.querySelectorAll('#rsl-list-inner .rsl-row-highlight')
+  document.querySelectorAll('.rsl-row-highlight')
     .forEach(row => row.classList.remove('rsl-row-highlight'));
 }
 
@@ -968,7 +983,8 @@ function _buildPublicarPanelHtml(pubItems) {
 }
 
 // Descuenta materiales recursivamente igual que _agregarMats: expande sub-crafteos en modo 'crafteo'
-function _descontarMats(materiales, multiplicador, resultMap, depth = 0) {
+// stockUsed: Map<item_id, qty> para rastrear stock de sub-crafteos ya asignado (solo en flujo reponer)
+function _descontarMats(materiales, multiplicador, resultMap, depth = 0, stockUsed = null) {
   if (depth > 6) return;
   for (const m of (materiales || [])) {
     const qty  = (m.cantidad || 1) * multiplicador;
@@ -977,7 +993,22 @@ function _descontarMats(materiales, multiplicador, resultMap, depth = 0) {
       const subItem = items.find(i => i.id === m.item_id);
       const subReceta = subItem ? getCheapestReceta(subItem) : null;
       if (subReceta?.length) {
-        _descontarMats(subReceta, qty, resultMap, depth + 1);
+        if (stockUsed !== null) {
+          const stockItem = subItem.rareza
+            ? (items.find(i => normName(i.nombre) === normName(subItem.nombre) && i.rareza === subItem.rareza) || subItem)
+            : (findMatItem(subItem.nombre) || subItem);
+          const used      = stockUsed.get(stockItem.id) || 0;
+          const avail     = Math.max(0, (stockItem.comprados || 0) - used);
+          const fromStock = Math.min(qty, avail);
+          const toCraft   = qty - fromStock;
+          if (fromStock > 0) {
+            stockUsed.set(stockItem.id, used + fromStock);
+            resultMap.set(stockItem.id, (resultMap.get(stockItem.id) || 0) + fromStock);
+          }
+          if (toCraft > 0) _descontarMats(subReceta, toCraft, resultMap, depth + 1, stockUsed);
+        } else {
+          _descontarMats(subReceta, qty, resultMap, depth + 1, null);
+        }
         continue;
       }
     }
@@ -1013,11 +1044,12 @@ function cancelCraftear() {
 
 async function confirmCraftear() {
   if (!craftearPreview) return;
-  const { crafteos } = craftearPreview;
+  const { crafteos, qtyMap } = craftearPreview;
   craftearPreview = null;
   // Calcular consumo expandiendo sub-crafteos igual que _agregarMats
   const matMap = new Map(); // matItem.id → qty a descontar
-  for (const item of crafteos) _descontarMats(getCheapestReceta(item), 1, matMap);
+  const stockUsed = qtyMap ? new Map() : null; // solo en flujo reponer: usa stock de sub-crafteos
+  for (const item of crafteos) _descontarMats(getCheapestReceta(item), qtyMap?.get(item.id) || 1, matMap, 0, stockUsed);
   // Aplicar descuentos y actualizar stock
   const matModificados = new Map();
   for (const [id, qty] of matMap) {
@@ -1028,7 +1060,7 @@ async function confirmCraftear() {
       _addStockHist(matItem.nombre, matItem.comprados);
     matModificados.set(id, matItem);
   }
-  for (const item of crafteos) item.comprados = (item.comprados || 0) + 1;
+  for (const item of crafteos) item.comprados = (item.comprados || 0) + (qtyMap?.get(item.id) || 1);
   render();
   await Promise.all([
     ...crafteos.map(i => pushItem(i)),
@@ -1058,9 +1090,10 @@ function cancelarSelReponer() {
 
 async function confirmarReponerSel() {
   const crafteos = items.filter(i => _reponerCraftSelIds.has(i.id));
+  const qtyMap = new Map(crafteos.map(i => [i.id, _reponerQty.get(i.id) || 1]));
   _reponerCraftSelIds.clear();
   if (!crafteos.length) return;
-  craftearPreview = { crafteos, mats: new Map() };
+  craftearPreview = { crafteos, mats: new Map(), qtyMap };
   await confirmCraftear();
 }
 
@@ -1113,11 +1146,18 @@ function _renderSubCrafteos(subCrafteos, reponerItems) {
   const equipoHtml = equipos.map(sc => {
     const [emoji, , profitStr, eid, priceHtml] = _scRow(sc);
     const rClass = rarezaClass(sc.item?.rareza);
-    return `<div class="rsl-c-row"${eid ? ` onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()"` : ''}>
+    const toCraft = sc.qty - (sc.qtyFromStock || 0);
+    const stockTotal = sc.stockItemId ? (items.find(i => i.id === sc.stockItemId)?.comprados || 0) : (sc.item?.comprados || 0);
+    const sidEsc = (sc.stockItemId || sc.item?.id || '').replace(/'/g, "\\'");
+    const stockInfo = sidEsc ? `<span class="rsl-tienes-wrap">📦<input class="rsl-stock-input rsl-tienes-input" type="number" min="0" value="${stockTotal}" style="width:${Math.max(1,String(stockTotal).length)}ch" oninput="this.style.width=Math.max(1,this.value.length)+'ch'" onchange="setStock('${sidEsc}','comprados',this.value)" onkeydown="if(event.key==='Enter')this.blur()" title="Tienes en almacén"></span>` : '';
+    const qtyHtml = toCraft > 0
+      ? `<span class="rsl-c-qty">×${toCraft}</span>${stockInfo}`
+      : `<span class="rsl-stock-badge rsl-stock-badge-full" title="Cubierto por almacén — ir a recoger">×${sc.qtyFromStock} recoger</span>${stockInfo}`;
+    return `<div class="rsl-c-row"${eid ? ` data-item-id="${sc.item?.id}" onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()"` : ''}>
       <span class="rsl-c-emoji">${emoji}</span>
       <span class="rsl-c-nombre" ${eid ? `onclick="openModal('${eid}')" style="cursor:pointer"` : ''}>${sc.nombre}<span class="rsl-ingrediente-sub">(ingrediente)</span></span>
       ${sc.item?.rareza ? `<span class="loot-rareza-badge ${rClass}" style="font-size:0.6rem;padding:0 5px;flex-shrink:0">${sc.item.rareza}</span>` : ''}
-      <span class="rsl-c-qty">×${sc.qty}</span>
+      ${qtyHtml}
       <span class="rsl-c-spacer"></span>
       ${priceHtml}
       ${profitStr}
@@ -1128,10 +1168,17 @@ function _renderSubCrafteos(subCrafteos, reponerItems) {
   const basicoHtml = basicos.length
     ? `<div class="rsl-sub-crafteos-head">🧱 Crafteos básicos</div>` + basicos.map(sc => {
         const [emoji, , profitStr, eid, priceHtml] = _scRow(sc);
-        return `<div class="rsl-c-row"${eid ? ` onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()"` : ''}>
+        const toCraft = sc.qty - (sc.qtyFromStock || 0);
+        const stockTotal = sc.stockItemId ? (items.find(i => i.id === sc.stockItemId)?.comprados || 0) : (sc.item?.comprados || 0);
+        const sidEsc = (sc.stockItemId || sc.item?.id || '').replace(/'/g, "\\'");
+        const stockInfo = sidEsc ? `<span class="rsl-tienes-wrap">📦<input class="rsl-stock-input rsl-tienes-input" type="number" min="0" value="${stockTotal}" style="width:${Math.max(1,String(stockTotal).length)}ch" oninput="this.style.width=Math.max(1,this.value.length)+'ch'" onchange="setStock('${sidEsc}','comprados',this.value)" onkeydown="if(event.key==='Enter')this.blur()" title="Tienes en almacén"></span>` : '';
+        const qtyHtml = toCraft > 0
+          ? `<span class="rsl-c-qty">×${toCraft}</span>${stockInfo}`
+          : `<span class="rsl-stock-badge rsl-stock-badge-full" title="Cubierto por almacén — ir a recoger">×${sc.qtyFromStock} recoger</span>${stockInfo}`;
+        return `<div class="rsl-c-row"${eid ? ` data-item-id="${sc.item?.id}" onmouseenter="highlightMats('${eid}')" onmouseleave="clearMatHighlights()"` : ''}>
           <span class="rsl-c-emoji">${emoji}</span>
           <span class="rsl-c-nombre">${sc.nombre}</span>
-          <span class="rsl-c-qty">×${sc.qty}</span>
+          ${qtyHtml}
           <span class="rsl-c-spacer"></span>
           ${priceHtml}
           ${profitStr}
@@ -1153,20 +1200,31 @@ function _buildReponerPanelHtml(reponerItems) {
   // Agrega materiales a comprar de forma recursiva:
   // si un ingrediente tiene item_id y craftearlo es más barato, expande sus propios ingredientes
   const mats = new Map();
-  const subCrafteos = new Map(); // item_id → {nombre, qty, item}
+  const subCrafteos = new Map(); // item_id → {nombre, qty, qtyFromStock, item}
+  const _subStockUsed = new Map(); // item_id → qty de comprados ya asignados a reponer
   function _agregarMats(materiales, multiplicador, depth) {
     if (depth > 6) return; // seguridad ante ciclos
     for (const m of (materiales || [])) {
       const qty  = (m.cantidad || 1) * multiplicador;
       const info = getMatInfo(m);
       if (info.modo === 'crafteo' && m.item_id) {
-        // más barato craftear → expandir sus ingredientes
+        // más barato craftear → usar stock existente primero, luego expandir ingredientes
         const subItem = items.find(i => i.id === m.item_id);
         const subReceta = subItem ? getCheapestReceta(subItem) : null;
         if (subReceta?.length) {
-          if (!subCrafteos.has(m.item_id)) subCrafteos.set(m.item_id, { nombre: subItem.nombre, qty: 0, item: subItem });
-          subCrafteos.get(m.item_id).qty += qty;
-          _agregarMats(subReceta, qty, depth + 1);
+          const stockItem = subItem.rareza
+            ? (items.find(i => normName(i.nombre) === normName(subItem.nombre) && i.rareza === subItem.rareza) || subItem)
+            : (findMatItem(subItem.nombre) || subItem);
+          const used      = _subStockUsed.get(stockItem.id) || 0;
+          const avail     = Math.max(0, (stockItem.comprados || 0) - used);
+          const fromStock = Math.min(qty, avail);
+          const toCraft   = qty - fromStock;
+          if (fromStock > 0) _subStockUsed.set(stockItem.id, used + fromStock);
+          if (!subCrafteos.has(m.item_id)) subCrafteos.set(m.item_id, { nombre: subItem.nombre, qty: 0, qtyFromStock: 0, item: subItem, stockItemId: stockItem.id });
+          const sc = subCrafteos.get(m.item_id);
+          sc.qty += qty;
+          sc.qtyFromStock += fromStock;
+          if (toCraft > 0) _agregarMats(subReceta, toCraft, depth + 1);
           continue;
         }
       }
@@ -1184,15 +1242,26 @@ function _buildReponerPanelHtml(reponerItems) {
     }
   }
   for (const item of reponerItems) {
-    if (!_reponerHiddenIds.has(item.id)) _agregarMats(getCheapestReceta(item), 1, 0);
+    if (!_reponerHiddenIds.has(item.id)) _agregarMats(getCheapestReceta(item), _reponerQty.get(item.id) || 1, 0);
   }
   const matList   = [...mats.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  const totalCost = matList.reduce((s, m) => s + m.precio * m.qty, 0);
+  const stockCost = [...subCrafteos.values()].reduce((s, sc) => {
+    if (!sc.qtyFromStock || !sc.item) return s;
+    const pc = getPrecioActual(sc.item) || getCatalogPrice(sc.nombre);
+    const pf = calcCoste(sc.item);
+    const p  = (pf > 0 && pc > 0) ? Math.min(pf, pc) : (pf > 0 ? pf : pc);
+    return s + p * sc.qtyFromStock;
+  }, 0);
+  const totalCost = matList.reduce((s, m) => s + m.precio * m.qty, 0) + stockCost;
 
   // Mapa de consumo para items seleccionados (para mostrar −qty en la lista de materiales)
-  const selMats = _reponerCraftSelIds.size > 0
-    ? _calcCraftearMats(items.filter(i => _reponerCraftSelIds.has(i.id)))
-    : new Map();
+  const selMats = (() => {
+    if (!_reponerCraftSelIds.size) return new Map();
+    const m = new Map();
+    for (const i of items.filter(i => _reponerCraftSelIds.has(i.id)))
+      _descontarMats(getCheapestReceta(i), _reponerQty.get(i.id) || 1, m);
+    return m;
+  })();
 
   // Auto-crear items de 'material' para Superglú que aún no tengan entrada en items
   for (const m of matList) {
@@ -1299,10 +1368,14 @@ function _buildReponerPanelHtml(reponerItems) {
               qtyIngrediente += (m.cantidad || 1);
           }
         }
-        const totalCraftear = 1 + qtyIngrediente;
-        const qtyHtml = totalCraftear > 1
-          ? `<span class="rsl-c-qty">×${totalCraftear}</span><span class="rsl-c-usado">(×1 vender · ×${qtyIngrediente} ingrediente)</span>`
-          : `<span class="rsl-c-qty">×1</span>`;
+        const userQty = _reponerQty.get(i.id) || 1;
+        const totalCraftear = userQty + qtyIngrediente;
+        const qtyHtml = `<span class="rsl-c-qty-wrap">
+          <button class="rsl-qty-btn" onclick="event.stopPropagation();setReponerQty('${eid}',-1)">−</button>
+          <span class="rsl-c-qty">×${totalCraftear}</span>
+          <button class="rsl-qty-btn" onclick="event.stopPropagation();setReponerQty('${eid}',1)">+</button>
+          ${qtyIngrediente > 0 ? `<span class="rsl-c-usado">(×${userQty} craftear · ×${qtyIngrediente} ing.)</span>` : ''}
+        </span>`;
 
         const stale = isPriceStale(i);
         const lastPrecio = i.historial_precios?.length ? i.historial_precios.reduce((a,b) => b.fecha > a.fecha ? b : a).precio : 0;
