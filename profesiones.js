@@ -3659,6 +3659,24 @@ async function saveItem(e) {
     grupo_recoleccion = null;
   }
 
+  if (categoria === 'crafteo') {
+    const todasMats = [materiales, ...recetas_alt].flatMap(r => r || []);
+    const esSelfRef = editingId
+      ? todasMats.some(m => m.item_id === editingId)
+      : todasMats.some(m => {
+          if (normName(m.nombre) !== normName(nombre)) return false;
+          if (m.item_id) {
+            const ref = items.find(i => i.id === m.item_id);
+            return !ref || ref.rareza === rareza;
+          }
+          return true;
+        });
+    if (esSelfRef) {
+      alert(`❌ Un item no puede usarse a sí mismo como ingrediente.`);
+      return;
+    }
+  }
+
   let item;
   if (editingId) {
     item = items.find(i => i.id === editingId);
