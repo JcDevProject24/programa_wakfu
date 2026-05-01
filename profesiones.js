@@ -203,6 +203,13 @@ function isPriceStale(item) {
 // ESTADO
 // ─────────────────────────────────────────────
 let items           = [];
+let itemsById       = new Map();
+let itemsByNormName = new Map();
+let _indexesDirty   = true;
+let _dataVersion    = 0;
+let _lastSidebarKey = '';
+let _lastDatalistVer = -1;
+let _calcCache      = new Map();
 let catalog         = {};     // normName → precio  (fuente de verdad para precios de materiales)
 let catalogNames    = {};     // normName → nombre original (para el datalist)
 let editingId       = null;
@@ -231,12 +238,33 @@ let craftearPreview = null; // null | { crafteos: [...items], mats: Map<matItem.
 // ─────────────────────────────────────────────
 // CATÁLOGO DE MATERIALES (precios compartidos)
 // ─────────────────────────────────────────────
-const normName = s => (s || '').toLowerCase().trim();
+const normName = s => (s || '').toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+function _markItemsDirty() {
+  _indexesDirty = true;
+  _dataVersion++;
+}
+
+function rebuildIndexes() {
+  itemsById = new Map(items.map(i => [i.id, i]));
+  itemsByNormName = new Map();
+  for (const i of items) {
+    itemsByNormName.set(normName(i.nombre), i);
+    if (i.nombre_alternativo) itemsByNormName.set(normName(i.nombre_alternativo), i);
+  }
+  _indexesDirty = false;
+}
+
+function byId(id) {
+  if (id == null) return undefined;
+  if (_indexesDirty) rebuildIndexes();
+  return itemsById.get(id);
+}
 
 // Busca un item por nombre, incluyendo nombre_alternativo
 function findMatItem(nombre) {
-  const k = normName(nombre);
-  return items.find(i => normName(i.nombre) === k || normName(i.nombre_alternativo || '') === k);
+  if (_indexesDirty) rebuildIndexes();
+  return itemsByNormName.get(normName(nombre));
 }
 
 function getCatalogPrice(nombre) {
@@ -251,6 +279,7 @@ async function updateCatalogPrice(nombre, precio, rareza = null) {
   const val = Math.max(0, parseInt(precio, 10) || 0);
   if (catalog[key] === val) return;
   catalog[key]      = val;
+  _dataVersion++;
   catalogNames[key] = nombre.trim();
   setMatFecha(nombre);
 
@@ -355,6 +384,7 @@ async function loadAll() {
     const [itemsRes, catRes] = await Promise.all([fetch(API), fetch(API_MAT)]);
     if (!itemsRes.ok) throw new Error(itemsRes.status);
     items       = await itemsRes.json();
+    _markItemsDirty();
     catalog     = {};
     catalogNames = {};
     if (catRes.ok) {
@@ -401,7 +431,7 @@ function getMatInfo(m) {
     const precio = getCatalogPrice(m.nombre);
     return { precio, modo: 'compra', precioCompra: precio, precioCreacion: null };
   }
-  const ref = items.find(i => i.id === m.item_id);
+  const ref = byId(m.item_id);
   if (!ref) {
     const precio = getCatalogPrice(m.nombre);
     return { precio, modo: 'compra', precioCompra: precio, precioCreacion: null };
@@ -430,9 +460,12 @@ function _calcCosteReceta(mats) {
 }
 
 function calcCoste(item) {
+  const key = 'c' + item.id;
+  if (_calcCache.has(key)) return _calcCache.get(key);
   const recetas = [item.materiales, ...(item.recetas_alt || [])].filter(r => r?.length);
-  if (!recetas.length) return item.coste_base || 0;
-  return Math.min(...recetas.map(_calcCosteReceta));
+  const result = !recetas.length ? (item.coste_base || 0) : Math.min(...recetas.map(_calcCosteReceta));
+  _calcCache.set(key, result);
+  return result;
 }
 
 // Devuelve los materiales de la receta más barata (principal o alternativa)
@@ -455,14 +488,21 @@ function getPrecioActual(item) {
 }
 
 function calcProfit(item) {
-  if (item.categoria === 'recoleccion' || item.categoria === 'material') return null;
-  const coste  = calcCoste(item);
-  const precio = getPrecioActual(item);
-  if (precio === null) return null;
-  const neto      = Math.round(precio * (1 - TAX_RATE));
-  const profit    = neto - coste;
-  const profitPct = coste > 0 ? (profit / coste * 100) : null;
-  return { profit, profitPct, coste, precio, neto };
+  const key = 'p' + item.id;
+  if (_calcCache.has(key)) return _calcCache.get(key);
+  let result = null;
+  if (item.categoria !== 'recoleccion' && item.categoria !== 'material') {
+    const coste  = calcCoste(item);
+    const precio = getPrecioActual(item);
+    if (precio !== null) {
+      const neto      = Math.round(precio * (1 - TAX_RATE));
+      const profit    = neto - coste;
+      const profitPct = coste > 0 ? (profit / coste * 100) : null;
+      result = { profit, profitPct, coste, precio, neto };
+    }
+  }
+  _calcCache.set(key, result);
+  return result;
 }
 
 function fmtK(n)   { return Math.round(n).toLocaleString('es-ES'); }
@@ -1279,6 +1319,7 @@ function _buildReponerPanelHtml(reponerItems) {
         coste_base: null
       };
       items.push(newItem);
+      _markItemsDirty();
       pushItem(newItem).catch(e => console.error(e));
     }
   }
@@ -1648,7 +1689,7 @@ function buildCard(item) {
     const coste    = calcCoste(item);
     const receta   = getCheapestReceta(item);
     const rows  = receta.map(m => {
-      const refItem = m.item_id ? items.find(i => i.id === m.item_id) : null;
+      const refItem = byId(m.item_id) ?? null;
       const esc     = m.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
       if (refItem) {
@@ -2028,12 +2069,14 @@ function buildCardsMatSecundario(prof) {
 // RENDER
 // ─────────────────────────────────────────────
 function render() {
+  _calcCache.clear();
   const container   = document.getElementById('cards');
   const empty       = document.getElementById('empty');
   const resultsText = document.getElementById('results-text');
 
-  updateSidebar();
-  updateMatDatalist();
+  const _sk = categoriaFilter + '|' + [...activeProfesiones].sort() + '|' + [...activeRarezas].sort() + '|' + [...activeTipos].sort() + '|' + _dataVersion;
+  if (_sk !== _lastSidebarKey) { _lastSidebarKey = _sk; updateSidebar(); }
+  if (_lastDatalistVer !== _dataVersion) { _lastDatalistVer = _dataVersion; updateMatDatalist(); }
   renderCatalog();
   renderIngredienteSearch();
   renderMatBase();
@@ -2469,6 +2512,7 @@ async function deleteItem(id) {
     await Promise.all(dependientes.map(i => pushItem(i)));
   }
   items = items.filter(i => i.id !== id);
+  _markItemsDirty();
   render();
   await removeItemFromDb(id);
 }
@@ -2549,6 +2593,7 @@ async function addVersionComoIngrediente(rareza) {
       comprados:         0, en_venta: 0, vendidos: 0,
     };
     items.push(stub);
+    _markItemsDirty();
     await pushItem(stub);
     render();
     refItem = stub;
@@ -2887,6 +2932,7 @@ async function guardarVarianteInline(grupoNombre, profesion, rareza) {
     comprados: 0, en_venta: 0, vendidos: 0,
   };
   items.push(newItem);
+  _markItemsDirty();
   catalogNames[normName(nombre)] = nombre;
   await pushItem(newItem);
   render();
@@ -3481,6 +3527,7 @@ async function createStubAndLink(c, rareza = null) {
     vendidos:          0,
   };
   items.push(stub);
+  _markItemsDirty();
   await pushItem(stub);
 
   // Migración: hermanos de la misma profesión sin nivel_item → asignar mismo nivel
@@ -3694,6 +3741,7 @@ async function saveItem(e) {
       historial_precios: []
     };
     items.push(item);
+    _markItemsDirty();
   }
 
   closeModal();
@@ -3719,6 +3767,7 @@ async function saveItem(e) {
             coste_base: null
           };
           items.push(sgItem);
+          _markItemsDirty();
           created.push(sgItem);
         }
         continue;
@@ -3773,6 +3822,7 @@ async function saveItem(e) {
         };
       }
       items.push(newItem);
+      _markItemsDirty();
       created.push(newItem);
       catalogNames[normName(m.nombre)] = m.nombre;
       setMatFecha(m.nombre); // marcar como recién actualizado
@@ -3950,7 +4000,12 @@ function updateShoppingList() {
 // ─────────────────────────────────────────────
 // EVENTOS
 // ─────────────────────────────────────────────
-document.getElementById('search').addEventListener('input', e => { searchText = e.target.value; render(); });
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+document.getElementById('search').addEventListener('input', debounce(e => { searchText = e.target.value; render(); }, 400));
 document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
