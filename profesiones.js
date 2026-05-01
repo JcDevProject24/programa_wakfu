@@ -209,6 +209,7 @@ let _indexesDirty   = true;
 let _dataVersion    = 0;
 let _lastSidebarKey = '';
 let _lastDatalistVer = -1;
+let _lastCofresKey  = '';
 let _calcCache      = new Map();
 let catalog         = {};     // normName → precio  (fuente de verdad para precios de materiales)
 let catalogNames    = {};     // normName → nombre original (para el datalist)
@@ -226,6 +227,10 @@ let sortSecondary   = 'vendidos';
 let matCount        = 0;
 let reponerMode       = false;
 let publicarMode      = false;
+let cofresMode        = false;
+let cofresSortBy      = 'uso';
+let cofresSortDir     = 'desc';
+let cofresSearch      = '';
 let reponerSortAsc    = true;          // orden de "Qué voy a craftear": true=ascendente por nivel
 let _reponerHiddenIds  = new Set(JSON.parse(localStorage.getItem('reponerHiddenIds') || '[]')); // IDs de crafteos ocultados con el ojo
 let _reponerCraftSelIds = new Set(); // IDs marcados para craftear
@@ -565,12 +570,12 @@ function getDisplayUnits() {
 // FILTROS
 // ─────────────────────────────────────────────
 function matchesItem(item) {
-  const q = searchText.toLowerCase();
+  const q = normName(searchText);
   if (q) {
-    const inNombre = item.nombre.toLowerCase().includes(q);
-    const inAlt    = item.nombre_alternativo && item.nombre_alternativo.toLowerCase().includes(q);
-    const inProf   = (item.profesion || '').toLowerCase().includes(q);
-    const inTipo   = item.tipo && item.tipo.toLowerCase().includes(q);
+    const inNombre = normName(item.nombre).includes(q);
+    const inAlt    = item.nombre_alternativo && normName(item.nombre_alternativo).includes(q);
+    const inProf   = normName(item.profesion || '').includes(q);
+    const inTipo   = item.tipo && normName(item.tipo).includes(q);
     if (!inNombre && !inAlt && !inProf && !inTipo) return false;
   }
   if (categoriaFilter !== 'todo' && item.categoria !== categoriaFilter) return false;
@@ -588,12 +593,12 @@ function matchesItem(item) {
 }
 
 function matchesGrupo(g) {
-  const q = searchText.toLowerCase();
+  const q = normName(searchText);
   if (q) {
-    const inNombre    = g.grupoNombre.toLowerCase().includes(q);
-    const inVariantes = Object.values(g.variantes).some(v => v && v.nombre.toLowerCase().includes(q));
-    const inProf      = g.profesion.toLowerCase().includes(q);
-    const inLugar     = g.lugar && g.lugar.toLowerCase().includes(q);
+    const inNombre    = normName(g.grupoNombre).includes(q);
+    const inVariantes = Object.values(g.variantes).some(v => v && normName(v.nombre).includes(q));
+    const inProf      = normName(g.profesion).includes(q);
+    const inLugar     = g.lugar && normName(g.lugar).includes(q);
     if (!inNombre && !inVariantes && !inProf && !inLugar) return false;
   }
   if (categoriaFilter !== 'todo' && categoriaFilter !== 'recoleccion') return false;
@@ -800,6 +805,66 @@ function togglePublicarMode() {
   if (publicarMode) { reponerMode = false; document.getElementById('toggle-reponer')?.classList.remove('on'); }
   document.getElementById('toggle-publicar')?.classList.toggle('on', publicarMode);
   render();
+}
+
+function toggleCofresMode() {
+  cofresMode = !cofresMode;
+  if (cofresMode) {
+    reponerMode = false; publicarMode = false;
+    document.getElementById('toggle-reponer')?.classList.remove('on');
+    document.getElementById('toggle-publicar')?.classList.remove('on');
+  }
+  document.getElementById('toggle-cofres')?.classList.toggle('on', cofresMode);
+  render();
+}
+
+function setCofresSort(k) {
+  const DEFAULTS = { precio: 'asc', avg: 'desc', descuento: 'asc', uso: 'desc', stock: 'asc', fecha: 'asc' };
+  if (cofresSortBy === k) {
+    cofresSortDir = cofresSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    cofresSortBy = k;
+    cofresSortDir = DEFAULTS[k] ?? 'desc';
+  }
+  _lastCofresKey = '';
+  render();
+}
+
+function onCofresSearch(val) {
+  cofresSearch = val;
+  _lastCofresKey = '';
+  render();
+}
+
+function cofresConfirm(nombre) {
+  setMatFecha(nombre);
+  _lastCofresKey = '';
+  render();
+}
+
+function _applyCofresStock(item, newVal) {
+  const val = Math.max(0, parseInt(newVal, 10) || 0);
+  item.comprados = val;
+  if (item.categoria === 'material' || item.categoria === 'recoleccion')
+    _addStockHist(item.nombre, val);
+  const el = document.querySelector(`.cofres-stock-input[data-id="${item.id}"]`);
+  if (el) el.value = val;
+  pushItem(item);
+}
+
+function addCofresStock(itemId, addVal, sumInputEl) {
+  const v = parseInt(addVal, 10);
+  if (!v) return;
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+  _applyCofresStock(item, (item.comprados || 0) + v);
+  if (sumInputEl) sumInputEl.value = '';
+}
+
+function setCofresStock(id, value) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  _applyCofresStock(item, value);
 }
 
 function toggleReponerSort() {
@@ -1227,6 +1292,126 @@ function _renderSubCrafteos(subCrafteos, reponerItems) {
     : '';
 
   return { equipoHtml, basicoHtml };
+}
+
+// ─────────────────────────────────────────────
+// COFRES FIN DE MES
+// ─────────────────────────────────────────────
+function calcCofresItems() {
+  const result = [];
+  const q = normName(cofresSearch);
+  for (const [key, nombre] of Object.entries(catalogNames)) {
+    // Excluir solo crafteos CON ingredientes (esos se fabrican)
+    // Crafteos sin ingredientes son drops/loot que se compran en mercado → incluir
+    const matItem = findMatItem(nombre);
+    if (matItem?.categoria === 'crafteo' && (matItem.materiales?.length || 0) > 0) continue;
+
+    // Solo materiales usados en algún crafteo
+    const recetas = items.filter(i => {
+      if (i.categoria !== 'crafteo') return false;
+      return getCheapestReceta(i).some(m => normName(m.nombre) === key);
+    });
+    if (!recetas.length) continue;
+
+    // Filtro de búsqueda
+    if (q && !normName(nombre).includes(q)) continue;
+
+    const qtyPorCiclo = recetas.reduce((s, i) => {
+      const m = getCheapestReceta(i).find(m => normName(m.nombre) === key);
+      return s + (m?.cantidad || 0);
+    }, 0);
+
+    const precioActual = catalog[key] || 0;
+    const hist         = _getPriceHist(nombre);
+    const avg          = hist.length >= 2 ? hist.reduce((s, p) => s + p, 0) / hist.length : 0;
+    const pct          = avg > 0 ? precioActual / avg : 1;
+    const ahorro       = avg > 0 ? Math.round((avg - precioActual) * qtyPorCiclo) : 0;
+
+    result.push({
+      nombre, key, precioActual, avg, pct, ahorro,
+      usadoEn: recetas.length, qtyPorCiclo,
+      stockActual: matItem?.comprados || 0,
+      itemId: matItem?.id || null,
+      fecha: getMatFecha(nombre),
+    });
+  }
+
+  const _cmpAsc = {
+    precio:    (a, b) => a.precioActual - b.precioActual,
+    avg:       (a, b) => a.avg - b.avg,
+    descuento: (a, b) => a.pct - b.pct,
+    uso:       (a, b) => a.qtyPorCiclo - b.qtyPorCiclo,
+    stock:     (a, b) => a.stockActual - b.stockActual,
+    fecha:     (a, b) => a.fecha - b.fecha,
+  }[cofresSortBy] ?? ((a, b) => a.qtyPorCiclo - b.qtyPorCiclo);
+  const _mul = cofresSortDir === 'asc' ? 1 : -1;
+  return result.sort((a, b) => _mul * _cmpAsc(a, b));
+}
+
+function _buildCofresPanelHtml() {
+  const cofresItems = calcCofresItems();
+
+  const toolbar = `<div class="cofres-toolbar">
+    <input class="cofres-search" type="text" placeholder="Buscar material… (Enter)" value="${cofresSearch.replace(/"/g,'&quot;')}"
+      onkeydown="if(event.key==='Enter')onCofresSearch(this.value)">
+  </div>`;
+
+  if (!cofresItems.length) {
+    return `<div class="cofres-panel-inner">${toolbar}
+      <div class="cofres-empty">No hay materiales en el catálogo todavía.</div>
+    </div>`;
+  }
+
+  const _hdr = (label, k, title) => {
+    const active = cofresSortBy === k;
+    const arr = active ? (cofresSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+    return `<span class="cofres-col-hdr${active ? ' active' : ''}" onclick="setCofresSort('${k}')"${title ? ` title="${title}"` : ''}>${label}${arr}</span>`;
+  };
+
+  const header = `<div class="cofres-header">
+    <span>Material</span>
+    ${_hdr('Precio', 'precio')}
+    ${_hdr('Prom.', 'avg')}
+    ${_hdr('Bajada', 'descuento')}
+    ${_hdr('/ciclo', 'uso', 'Cantidad total por ciclo de crafteo')}
+    <span title="Añadir al stock">+</span>
+    ${_hdr('Stock', 'stock')}
+    ${_hdr('✓', 'fecha', 'Ordenar por sin actualizar')}
+  </div>`;
+
+  const rows = cofresItems.map(ci => {
+    const esc   = ci.nombre.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const idEsc = (ci.itemId || '').replace(/"/g, '&quot;');
+    const pctNum = ci.avg > 0 ? Math.round((1 - ci.pct) * 100) : null;
+    const pctHtml = pctNum === null
+      ? `<span class="cofres-pct">—</span>`
+      : `<span class="cofres-pct${pctNum >= 50 ? ' cofres-pct-great' : pctNum >= 25 ? ' cofres-pct-good' : pctNum > 0 ? ' cofres-pct-ok' : ' cofres-pct-over'}">${pctNum > 0 ? `-${pctNum}%` : `+${Math.abs(pctNum)}%`}</span>`;
+    const avgHtml = ci.avg > 0 ? fmtK(Math.round(ci.avg)) : '—';
+    const sumEl   = ci.itemId
+      ? `<input class="cofres-sum-input" type="number" min="1" placeholder="+"
+           onkeydown="if(event.key==='Enter'){addCofresStock('${idEsc}',this.value,this);}" title="Añadir al stock">`
+      : `<span></span>`;
+    const stockEl = ci.itemId
+      ? `<input class="cofres-stock-input" type="number" min="0" value="${ci.stockActual}" data-id="${idEsc}"
+           onkeydown="if(event.key==='Enter'){setCofresStock('${idEsc}',this.value);this.blur();}"
+           onchange="setCofresStock('${idEsc}',this.value)" title="Stock en almacén">`
+      : `<span class="cofres-muted">—</span>`;
+
+    return `<div class="cofres-row">
+      <span class="cofres-nombre" title="${ci.nombre} · usado en ${ci.usadoEn} crafteo${ci.usadoEn !== 1 ? 's' : ''}">${ci.nombre}</span>
+      <input class="cofres-precio-input" type="number" min="0" value="${ci.precioActual || ''}" placeholder="—"
+        onchange="updateCatalogPrice('${esc}', this.value)"
+        onkeydown="if(event.key==='Enter'){updateCatalogPrice('${esc}',this.value);this.blur();}">
+      <span class="cofres-avg">${avgHtml}</span>
+      ${pctHtml}
+      <span class="cofres-ciclo">×${ci.qtyPorCiclo}</span>
+      ${sumEl}
+      ${stockEl}
+      <button class="cofres-tick" onclick="cofresConfirm('${esc}')" title="Marcar como revisado">✓</button>
+    </div>`;
+  }).join('');
+
+  return `<div class="cofres-panel-inner">${toolbar}${header}<div class="cofres-list">${rows}</div></div>`;
 }
 
 function _buildReponerPanelHtml(reponerItems) {
@@ -2105,6 +2290,32 @@ function render() {
     } else {
       publicarPanelEl.style.display = 'none';
     }
+  }
+
+  // Cofres panel
+  const cofresPanelEl = document.getElementById('cofres-panel');
+  if (cofresPanelEl) {
+    if (cofresMode && !matBaseFilter) {
+      const _ck = _dataVersion + '|' + cofresSortBy + '|' + cofresSortDir + '|' + cofresSearch;
+      if (_ck !== _lastCofresKey) {
+        _lastCofresKey = _ck;
+        const _scroll = cofresPanelEl.querySelector('.cofres-list')?.scrollTop ?? 0;
+        cofresPanelEl.innerHTML = _buildCofresPanelHtml();
+        const _list = cofresPanelEl.querySelector('.cofres-list');
+        if (_list) _list.scrollTop = _scroll;
+      }
+      cofresPanelEl.style.display = '';
+    } else {
+      cofresPanelEl.style.display = 'none';
+      _lastCofresKey = '';
+    }
+  }
+
+  if (cofresMode) {
+    container.innerHTML = '';
+    empty.style.display = 'none';
+    resultsText.innerHTML = `<span style="color:var(--muted)">🎁 Modo cofres — actualiza precios y stock</span>`;
+    return;
   }
 
   // ── Vista virtual: Superglú o material base de profesión ──

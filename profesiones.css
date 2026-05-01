@@ -1440,3 +1440,80 @@ details:not([open]) .ph-summary::before { content: '▸ '; }
 .sbajo-val {
   flex-shrink: 0; font-family: 'Cinzel', serif; font-size: 0.72rem; margin-left: 6px;
 }
+
+/* ── Cofres fin de mes ───────────────────────────────────── */
+.cofres-panel-inner {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 8px 0 12px;
+  overflow: hidden;
+}
+.cofres-toolbar {
+  display: flex; gap: 6px; padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.cofres-header, .cofres-row {
+  display: grid;
+  grid-template-columns: 1fr 88px 68px 56px 50px 46px 62px 22px;
+  align-items: center; gap: 6px; padding: 5px 10px;
+}
+.cofres-header {
+  font-size: 0.7rem; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .04em; border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.cofres-col-hdr { cursor: pointer; user-select: none; white-space: nowrap; }
+.cofres-col-hdr:hover { color: var(--text); }
+.cofres-col-hdr.active { color: var(--accent); }
+.cofres-row { border-bottom: 1px solid var(--border); }
+.cofres-row:last-child { border-bottom: none; }
+.cofres-row:hover { background: var(--hover); }
+.cofres-list { max-height: 60vh; overflow-y: auto; }
+.cofres-nombre {
+  font-size: 0.8rem; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; cursor: default;
+}
+.cofres-precio-input, .cofres-stock-input {
+  width: 100%; padding: 3px 5px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--input-bg);
+  color: var(--text); font-size: 0.78rem; text-align: right;
+}
+.cofres-precio-input:focus, .cofres-stock-input:focus {
+  outline: none; border-color: var(--accent);
+}
+.cofres-avg  { font-size: 0.75rem; color: var(--muted); text-align: right; }
+.cofres-ciclo { font-size: 0.75rem; color: var(--muted); text-align: center; }
+.cofres-pct  { font-size: 0.78rem; font-weight: 600; text-align: center; }
+.cofres-pct-great { color: var(--green); }
+.cofres-pct-good  { color: var(--teal, #4ecdc4); }
+.cofres-pct-ok    { color: var(--yellow, #f7b731); }
+.cofres-pct-over  { color: var(--red); }
+.cofres-muted { font-size: 0.75rem; color: var(--muted); text-align: center; }
+.cofres-empty { padding: 20px; text-align: center; color: var(--muted); font-style: italic; }
+.cofres-search {
+  margin-left: auto; padding: 4px 8px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--input-bg);
+  color: var(--text); font-size: 0.78rem; width: 160px;
+}
+.cofres-search:focus { outline: none; border-color: var(--accent); }
+.cofres-sum-input {
+  width: 100%; padding: 3px 4px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--input-bg);
+  color: var(--text); font-size: 0.78rem; text-align: right;
+}
+.cofres-sum-input:focus { outline: none; border-color: var(--accent); }
+.cofres-tick {
+  background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 0.85rem; padding: 0; line-height: 1;
+  transition: color 0.15s;
+}
+.cofres-tick:hover { color: var(--green); }
+.cofres-precio-input::-webkit-outer-spin-button,
+.cofres-precio-input::-webkit-inner-spin-button,
+.cofres-stock-input::-webkit-outer-spin-button,
+.cofres-stock-input::-webkit-inner-spin-button,
+.cofres-sum-input::-webkit-outer-spin-button,
+.cofres-sum-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.cofres-precio-input, .cofres-stock-input, .cofres-sum-input { -moz-appearance: textfield; }
