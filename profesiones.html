@@ -47,6 +47,7 @@
       <button class="cat-tab"        id="cat-recoleccion" onclick="setCategoria('recoleccion')">Recolec.</button>
       <button class="cat-tab"        id="cat-material"    onclick="setCategoria('material')">Material</button>
     </div>
+    <button id="btn-nuevo-material" class="nuevo-mat-btn" onclick="openModalMaterial()">+ Nuevo material</button>
   </div>
 
   <div class="filter-section">
@@ -214,6 +215,7 @@
           <select id="f-categoria" class="form-input form-select" onchange="onCategoriaChange()">
             <option value="crafteo">Crafteo</option>
             <option value="recoleccion">Recolección</option>
+            <option value="material">Material</option>
           </select>
         </div>
       </div>

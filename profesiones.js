@@ -2683,7 +2683,12 @@ async function deleteCatalogEntry(nombre) {
   fetch(`${API_MAT}?nombre=${encodeURIComponent(nombre)}`, { method: 'DELETE' }).catch(() => {});
 }
 
-function setCategoria(cat) { categoriaFilter = cat; matBaseFilter = null; activeProfesiones.clear(); renderMatBase(); render(); }
+function setCategoria(cat) {
+  categoriaFilter = cat; matBaseFilter = null; activeProfesiones.clear();
+  const btnNuevoMat = document.getElementById('btn-nuevo-material');
+  if (btnNuevoMat) btnNuevoMat.style.display = (cat === 'material' || cat === 'todo') ? '' : 'none';
+  renderMatBase(); render();
+}
 function toggleProfesion(p) { activeProfesiones.has(p) ? activeProfesiones.delete(p) : activeProfesiones.add(p); render(); }
 function toggleRareza(r)    { activeRarezas.has(r) ? activeRarezas.delete(r) : activeRarezas.add(r); render(); }
 function toggleTipo(t)      { activeTipos.has(t) ? activeTipos.delete(t) : activeTipos.add(t); render(); }
@@ -3071,6 +3076,15 @@ function openModal(id) {
   }
   document.getElementById('modal').style.display = 'flex';
   document.getElementById('f-nombre').focus();
+}
+
+function openModalMaterial() {
+  openModal();
+  document.getElementById('f-categoria').value = 'material';
+  document.getElementById('modal-title').textContent = 'Nuevo material';
+  ['prof-cat-row','mat-section-wrap','equip-fields','mat-base-hint','plan-craftear-wrap','mat-suggestions']
+    .forEach(id => document.getElementById(id)?.style.setProperty('display', 'none'));
+  _updateCosteBaseVisibility();
 }
 
 // Construye mini-formularios inline para las variantes faltantes de un grupo de recolección
@@ -3873,11 +3887,11 @@ async function saveItem(e) {
   const categoria = document.getElementById('f-categoria').value;
 
   // Validación manual (el form tiene novalidate para evitar bloqueos del navegador)
-  if (!profesion) {
+  if (!profesion && categoria !== 'material') {
     _markError('f-profesion', 'Selecciona una profesión');
     return;
   }
-  if (categoria === 'crafteo' && !document.getElementById('f-nombre').value.trim()) {
+  if ((categoria === 'crafteo' || categoria === 'material') && !document.getElementById('f-nombre').value.trim()) {
     _markError('f-nombre', 'Escribe el nombre del item');
     return;
   }

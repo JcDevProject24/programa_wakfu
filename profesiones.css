@@ -22,6 +22,24 @@
 .cat-tab:hover  { border-color: var(--gold); color: var(--gold); }
 .cat-tab.active { background: var(--gold); border-color: var(--gold); color: #0d0f14; font-weight: 700; }
 
+/* ── BOTÓN NUEVO MATERIAL (sidebar, visible solo en filtro Material) ── */
+.nuevo-mat-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 4px;
+  border-radius: 5px;
+  border: 1px dashed var(--gold);
+  background: transparent;
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .2s;
+}
+.nuevo-mat-btn:hover { background: rgba(212,175,55,0.12); }
+
 /* ── RAREZA DEL MATERIAL (recolección: normal / raro) ── */
 .rareza-mat-badge {
   font-family: 'Cinzel', serif;
