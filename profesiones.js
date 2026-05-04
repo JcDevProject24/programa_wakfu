@@ -55,6 +55,8 @@ const MAT_SECUNDARIO_BASE = {
   'Peletero':   'Esencia',
   'Panadero':   'Aceite',
 };
+// Secundarios que llevan sufijo masculino
+const MAT_SECUNDARIO_MASC = new Set(['Hilo', 'Acero', 'Encantártaro', 'Aceite']);
 
 // ─── FÓRMULAS DE NIVEL → TIER ──────────────────────────────────
 // Primario: tier = floor((max(1,lvl) - 1) / 10)
@@ -89,10 +91,11 @@ function getMatBaseNombresAll(profesion, nivelItem, nivelMinCheck = null) {
   return result;
 }
 function getMatSecNombres(nivelItem) {
-  const sufijo = getSufijo(nivelItem);
-  if (!sufijo) return [];
+  const sufijoFem  = getSufijo(nivelItem);
+  const sufijoMasc = getSufijoMasc(nivelItem);
+  if (!sufijoFem) return [];
   return Object.entries(MAT_SECUNDARIO_BASE).map(([prof, base]) => ({
-    nombre:    `${base} ${sufijo}`,
+    nombre:    `${base} ${MAT_SECUNDARIO_MASC.has(base) ? sufijoMasc : sufijoFem}`,
     profesion: PROFESIONES_RECOLECCION.includes(prof) ? prof : null,
   }));
 }
@@ -110,8 +113,8 @@ const PROF_TIPOS = {
 // Útil para autocompletado y como referencia al añadir materiales a una receta
 const PROF_MAT_BASE = {
   'Sastre':           { nombre: 'Fibra',      recProf: 'Campesino', ejemplo: 'Fibra tosca, Fibra rudimentaria…' },
-  'Maestro de armas': { nombre: 'Mango',      recProf: 'Leñador',   ejemplo: 'Mango tosco, Mango rudimentario…' },
-  'Marroquinero':     { nombre: 'Cuero',      recProf: 'Peletero',  ejemplo: 'Cuero tosco, Cuero rudimentario…' },
+  'Maestro de armas': { nombre: 'Mango', masc: true, recProf: 'Leñador',  ejemplo: 'Mango tosco, Mango rudimentario…' },
+  'Marroquinero':     { nombre: 'Cuero', masc: true, recProf: 'Peletero', ejemplo: 'Cuero tosco, Cuero rudimentario…' },
   'Joyero':           { nombre: 'Gema',       recProf: 'Minero',    ejemplo: 'Gema tosca, Gema rudimentaria…'   },
   'Armero':           { nombre: 'Placa',      recProf: 'Minero',    ejemplo: 'Placa tosca, Placa rudimentaria…' },
   'Cocinero':         { nombre: 'Especia',    recProf: 'Pescador',  ejemplo: 'Especia tosca, Especia rudimentaria…' },
@@ -266,10 +269,25 @@ function byId(id) {
   return itemsById.get(id);
 }
 
-// Busca un item por nombre, incluyendo nombre_alternativo
+// Devuelve el nombre con género opuesto si el sufijo final es de género, o null
+function _genderTwin(nombre) {
+  for (let t = 0; t < SUFIJOS_NIVEL.length; t++) {
+    const fem  = SUFIJOS_NIVEL[t];
+    const masc = SUFIJOS_NIVEL_MASC[t];
+    if (fem === masc) continue; // Frágil es igual en ambos géneros
+    if (nombre.endsWith(' ' + fem))  return nombre.slice(0, -(fem.length + 1))  + ' ' + masc;
+    if (nombre.endsWith(' ' + masc)) return nombre.slice(0, -(masc.length + 1)) + ' ' + fem;
+  }
+  return null;
+}
+
+// Busca un item por nombre, incluyendo nombre_alternativo y variante de género
 function findMatItem(nombre) {
   if (_indexesDirty) rebuildIndexes();
-  return itemsByNormName.get(normName(nombre));
+  const found = itemsByNormName.get(normName(nombre));
+  if (found) return found;
+  const twin = _genderTwin(nombre);
+  return twin ? itemsByNormName.get(normName(twin)) : undefined;
 }
 
 function getCatalogPrice(nombre) {
@@ -527,8 +545,10 @@ const PROFS_TIER_GROUPING = new Set(['Herbolario', 'Minero', 'Campesino', 'Leña
 // Clave de grupo: tier+profesion para profesiones con un recurso único por tier
 // Resto: grupo_recoleccion || nombre + profesion
 function grupoKey(item) {
-  if (PROFS_TIER_GROUPING.has(item.profesion) && item.nivel_item != null)
-    return `tier${getSufijoTier(item.nivel_item)}||${item.profesion}`;
+  if (PROFS_TIER_GROUPING.has(item.profesion) && item.nivel_item != null) {
+    const grupoBase = item.grupo_recoleccion || item.nombre;
+    return `tier${getSufijoTier(item.nivel_item)}|${grupoBase}||${item.profesion}`;
+  }
   return `${item.grupo_recoleccion || item.nombre}||${item.profesion}`;
 }
 
@@ -3094,7 +3114,7 @@ function _buildRecVarForms(grupoNombre, profesion, nivelBase, lugarBase) {
 
   // Usar grupoKey para agrupar por tier cuando hay nivel (igual que getDisplayUnits)
   const refKey = nivelBase != null
-    ? `tier${getSufijoTier(nivelBase)}||${profesion}`
+    ? `tier${getSufijoTier(nivelBase)}|${grupoNombre}||${profesion}`
     : `${grupoNombre}||${profesion}`;
   const grupoItems = items.filter(i =>
     i.categoria === 'recoleccion' && grupoKey(i) === refKey
@@ -3949,6 +3969,28 @@ async function saveItem(e) {
     }
   }
 
+  // Prevenir nombre duplicado en otra profesión
+  const conflictoProf = items.find(i =>
+    i.id !== editingId &&
+    normName(i.nombre) === normName(nombre) &&
+    i.profesion !== profesion
+  );
+  if (conflictoProf) {
+    const errField = categoria === 'recoleccion' ? 'f-grupo-rec' : 'f-nombre';
+    _markError(errField, `Ya existe "${conflictoProf.nombre}" con profesión "${conflictoProf.profesion}"`);
+    return;
+  }
+  // Prevenir duplicado por género erróneo (Acero tosco ↔ Acero tosca)
+  const gemelo = _genderTwin(nombre);
+  const conflictoGenero = gemelo
+    ? items.find(i => i.id !== editingId && normName(i.nombre) === normName(gemelo))
+    : null;
+  if (conflictoGenero) {
+    const errField = categoria === 'recoleccion' ? 'f-grupo-rec' : 'f-nombre';
+    _markError(errField, `Ya existe "${conflictoGenero.nombre}" — usa ese nombre`);
+    return;
+  }
+
   let item;
   if (editingId) {
     item = items.find(i => i.id === editingId);
@@ -4052,14 +4094,16 @@ async function saveItem(e) {
       catalogNames[normName(m.nombre)] = m.nombre;
       setMatFecha(m.nombre); // marcar como recién actualizado
 
-      // Migración: si hay hermanos de la misma profesión sin nivel_item, asignarles el mismo nivel
-      // para que grupoKey coincida y se agrupen en la misma card
+      // Migración: si hay variantes del mismo grupo sin nivel_item, asignarles el mismo nivel
+      // Acotado al mismo grupo_recoleccion para no tocar items de otra familia (p.ej. orbes sin nivel)
       if (PROFS_TIER_GROUPING.has(sc.profesion) && nivel_item != null) {
+        const grupoRef = newItem.grupo_recoleccion || newItem.nombre;
         items.filter(i =>
           i.id !== newItem.id &&
           i.categoria === 'recoleccion' &&
           i.profesion === sc.profesion &&
-          i.nivel_item == null
+          i.nivel_item == null &&
+          (i.grupo_recoleccion === grupoRef || normName(i.nombre) === normName(grupoRef))
         ).forEach(s => {
           s.nivel_item = nivel_item;
           created.push(s);
@@ -4221,6 +4265,82 @@ function updateShoppingList() {
     ${total > 0 ? `<div class="sl-total">Total materiales: <strong>${fmtK(total)}</strong></div>` : ''}
   `;
 }
+
+// ─────────────────────────────────────────────
+// MIGRACIÓN: renombrar items con sufijo de género incorrecto
+// ─────────────────────────────────────────────
+// Materiales masculinos mal nombrados con sufijo femenino, y viceversa.
+// Llamar una vez desde consola: await repararNombresGenero()
+async function repararNombresGenero() {
+  // Pares {wrongName, correctName} para todos los tiers de materiales masculinos
+  const renameEntries = [];
+  const masculinos = [
+    ...Object.values(MAT_SECUNDARIO_BASE).filter(b => MAT_SECUNDARIO_MASC.has(b)),
+    ...Object.values(PROF_MAT_BASE).filter(d => d.masc).map(d => d.nombre),
+    ...Object.values(PROF_MAT_BASE).flatMap(d => (d.extras || []).filter(e => e.masc).map(e => e.nombre)),
+  ];
+  for (const base of masculinos) {
+    for (let t = 0; t < SUFIJOS_NIVEL.length; t++) {
+      const fem  = SUFIJOS_NIVEL[t];
+      const masc = SUFIJOS_NIVEL_MASC[t];
+      if (fem === masc) continue;
+      renameEntries.push({ wrongName: `${base} ${fem}`, correctName: `${base} ${masc}` });
+    }
+  }
+  const renameMap = new Map(renameEntries.map(e => [normName(e.wrongName), e.correctName]));
+
+  const toUpdate = [];
+
+  // Renombrar items
+  for (const item of items) {
+    const correct = renameMap.get(normName(item.nombre));
+    if (correct && item.nombre !== correct) {
+      item.nombre = correct;
+      if (!toUpdate.includes(item)) toUpdate.push(item);
+    }
+  }
+
+  // Actualizar referencias en recetas
+  for (const item of items) {
+    let changed = false;
+    for (const receta of [item.materiales || [], ...(item.recetas_alt || [])]) {
+      for (const m of receta) {
+        const correct = renameMap.get(normName(m.nombre));
+        if (correct && m.nombre !== correct) { m.nombre = correct; changed = true; }
+      }
+    }
+    if (changed && !toUpdate.includes(item)) toUpdate.push(item);
+  }
+
+  // Actualizar catálogo: memoria + BD (POST nombre correcto, DELETE nombre incorrecto)
+  const catFetches = [];
+  for (const { wrongName, correctName } of renameEntries) {
+    const wrongKey = normName(wrongName);
+    if (catalog[wrongKey] !== undefined) {
+      const price = catalog[wrongKey];
+      delete catalog[wrongKey];
+      catalog[normName(correctName)] = price;
+      delete catalogNames[wrongKey];
+      catalogNames[normName(correctName)] = correctName;
+      // Persistir en BD
+      catFetches.push(
+        fetch(API_MAT, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre: correctName, precio: price }) }),
+        fetch(`${API_MAT}?nombre=${encodeURIComponent(wrongName)}`, { method: 'DELETE' })
+      );
+    }
+  }
+
+  if (toUpdate.length || catFetches.length) {
+    _markItemsDirty();
+    await Promise.all([...toUpdate.map(i => pushItem(i)), ...catFetches]);
+    rebuildIndexes();
+    render();
+  }
+  console.log(`repararNombresGenero: ${toUpdate.length} items, ${catFetches.length / 2} entradas de catálogo actualizadas.`);
+  return toUpdate.length;
+}
+window.repararNombresGenero = repararNombresGenero;
 
 // ─────────────────────────────────────────────
 // EVENTOS
