@@ -2929,8 +2929,15 @@ function addRecetaAlt(materiales = []) {
     addMaterialRow(m.nombre, m.cantidad, m.profesion || '', m.item_id || '', m.nivel_rec || null, m.rareza_mat || null, `receta-alt-mats-${idx}`)
   );
   if (!materiales.length) {
-    // Default: inferir recProf del item editado, cantidad 5
-    addMaterialRow('', '', '', '', null, null, `receta-alt-mats-${idx}`);
+    // Default: copiar la receta principal si tiene filas
+    const mainMats = getMaterialesFromForm();
+    if (mainMats.length) {
+      mainMats.forEach(m =>
+        addMaterialRow(m.nombre, m.cantidad, m.profesion || '', m.item_id || '', m.nivel_rec || null, m.rareza_mat || null, `receta-alt-mats-${idx}`)
+      );
+    } else {
+      addMaterialRow('', '', '', '', null, null, `receta-alt-mats-${idx}`);
+    }
   }
 }
 
@@ -3358,6 +3365,14 @@ function onCategoriaChange() {
   // Etiqueta stock
   const lbl = document.querySelector('#stock-comprados-group .form-label');
   if (lbl) lbl.textContent = isCrafteo ? 'Crafteados' : 'Farmeados';
+
+  // Recetas alternativas: visible para Ebanista crafteo (matbase lo gestiona _applyMatBaseFormSimplify)
+  const secAlt = document.getElementById('recetas-alt-section');
+  if (secAlt) {
+    const prof = document.getElementById('f-profesion')?.value;
+    if (cat === 'crafteo' && prof === 'Ebanista') secAlt.style.display = '';
+    else if (secAlt.style.display !== 'none') secAlt.style.display = 'none';
+  }
 
   _updateCosteBaseVisibility();
 }
