@@ -2939,10 +2939,54 @@ function addRecetaAlt(materiales = []) {
       addMaterialRow('', '', '', '', null, null, `receta-alt-mats-${idx}`);
     }
   }
+  _refreshDiffStockBadges();
 }
 
 function removeRecetaAlt(idx) {
   document.getElementById(`receta-alt-group-${idx}`)?.remove();
+  _refreshDiffStockBadges();
+}
+
+// Muestra "📦 N" en los ingredientes que cambian entre recetas (main + alts)
+function _refreshDiffStockBadges() {
+  const mainEl = document.getElementById('mat-container');
+  const altEls = Array.from(document.querySelectorAll('.receta-alt-mats'));
+  const containers = [mainEl, ...altEls].filter(Boolean);
+  if (containers.length < 2) {
+    containers.forEach(c => c?.querySelectorAll('.alt-stock-badge').forEach(b => b.remove()));
+    return;
+  }
+
+  // Nombre normalizados de cada receta
+  const recipeSets = containers.map(c =>
+    new Set(Array.from(c.querySelectorAll('.mf-nombre'))
+      .map(inp => normName(inp.value.trim())).filter(Boolean))
+  );
+  // Solo los que no aparecen en TODAS las recetas son "los que cambian"
+  const allMats  = new Set(recipeSets.flatMap(s => [...s]));
+  const diffMats = new Set([...allMats].filter(n => !recipeSets.every(s => s.has(n))));
+
+  containers.forEach(container => {
+    container.querySelectorAll('.loot-form-row').forEach(row => {
+      const nombre = row.querySelector('.mf-nombre')?.value.trim() || '';
+      const key    = normName(nombre);
+      if (!key || !diffMats.has(key)) {
+        row.querySelector('.alt-stock-badge')?.remove();
+        return;
+      }
+      const stock = findMatItem(nombre)?.comprados || 0;
+      let badge = row.querySelector('.alt-stock-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'alt-stock-badge';
+        const top = row.querySelector('.loot-form-top');
+        const del = top?.querySelector('.action-btn.danger');
+        if (del) top.insertBefore(badge, del); else top?.appendChild(badge);
+      }
+      badge.textContent = `📦 ${stock}`;
+      badge.title = `Tienes ${stock} en stock`;
+    });
+  });
 }
 
 function _clearRecetasAlt() {
@@ -3847,6 +3891,9 @@ function onMatNombreInput(input, c) {
     ) : [];
     linksEl.innerHTML = nombre ? _matRarezaBtns(c,matches) : '';
   }
+
+  // Refrescar badges de stock si hay recetas alternativas
+  if (document.querySelector('.receta-alt-mats')) _refreshDiffStockBadges();
 }
 
 function _markError(id, msg) {
